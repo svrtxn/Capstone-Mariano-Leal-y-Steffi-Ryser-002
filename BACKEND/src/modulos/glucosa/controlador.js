@@ -1,8 +1,8 @@
 const db = require('../../BD/mysql');
 
-
 // REGISTRO DE GLUCOSA
 exports.registrarGlucosa = async (req, res) => {
+     console.log('REQ.BODY:', req.body);
     try {
         const {
             usuario_id,
@@ -21,7 +21,7 @@ exports.registrarGlucosa = async (req, res) => {
         }
 
         const query = `
-            INSERT INTO glucosa 
+            INSERT INTO nivelesglucosa 
             (usuario_id, valor_glucosa, unidad, metodo_registro, origen_sensor, fecha_registro, etiquetado, notas, registrado_por) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
@@ -43,7 +43,11 @@ exports.registrarGlucosa = async (req, res) => {
             glucosa_id: result.insertId
         });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ mensaje: "Error al registrar la glucosa" });
+    console.error('ERROR EN REGISTRAR GLUCOSA:', error);
+        res.status(500).json({
+            mensaje: "Error al registrar la glucosa",
+            error: error.message  // Esto muestra el mensaje real en Postman
+        });
     }
+
 };
