@@ -10,6 +10,7 @@ app.set('port', config.app.port);
 
 // rutas
 app.use('/api/usuarios', usuarios)
+app.use('/api', glucosaRoutes);
 
 
 
