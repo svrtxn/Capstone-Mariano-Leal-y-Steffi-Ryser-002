@@ -9,7 +9,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Alert, // 👈 NUEVO: para mostrar el mensaje de confirmación
+  Alert, 
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
@@ -58,7 +58,7 @@ export default function IndexScreen() {
 
     console.log("Registro guardado →", payload);
 
-    // 👇 Confirmación visible al usuario
+    // Confirmación visible al usuario
     Alert.alert(
       "Registro guardado",
       `Se ingresaron los datos correctamente:\n\n• Glucosa: ${payload.glucose} mg/dL\n• Hora: ${payload.time}\n• Medicación: ${payload.med ? "Sí" : "No"}${
