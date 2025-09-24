@@ -1,17 +1,19 @@
 const express = require('express');
 const config = require('./config');
-
-const usuarios = require('./modulos/usuarios/rutas.js');
+const cors = require('cors'); 
 
 const app = express();
 
-// configuraciones
+app.use(cors()); // permitir conexiones de otros orígenes
+app.use(express.json()); // parsear json
+
+// Rutas
+const usuariosRoutes = require('./modulos/usuarios/rutas.js');
+const glucosaRoutes = require('./modulos/glucosa/rutas.js');
+
 app.set('port', config.app.port);
 
-// rutas
-app.use('/api/usuarios', usuarios)
-app.use('/api', glucosaRoutes);
-
-
+app.use('/api/usuarios', usuariosRoutes);
+app.use('/api/glucosa', glucosaRoutes);
 
 module.exports = app;
