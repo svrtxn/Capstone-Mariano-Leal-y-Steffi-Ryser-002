@@ -1,9 +1,10 @@
-//ruta glucosa
-
+// src/modulos/glucosa/rutas.js
 const express = require('express');
-const router = express.Router();
-const { registrarGlucosa } = require('./controlador');
+const ctrl = require('./controlador');
 
-router.post('/registrar-glucosa', registrarGlucosa);
+const router = express.Router();
+
+router.get('/', ctrl.listarPorUsuario);
+router.post('/', ctrl.registrarGlucosa);
 
 module.exports = router;
