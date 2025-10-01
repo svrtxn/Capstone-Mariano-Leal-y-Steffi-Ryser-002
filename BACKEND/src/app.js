@@ -1,19 +1,20 @@
 const express = require('express');
+const cors = require('cors');
 const config = require('./config');
-const cors = require('cors'); 
+
+// Rutas modulares
+const rutasGlucosa = require('./modulos/glucosa/rutas');
+const rutasUsuarios = require('./modulos/usuarios/rutas'); // si la tienes
 
 const app = express();
+app.use(cors({ origin: '*', methods: ['GET','POST','PUT','DELETE','OPTIONS'] }));
+app.use(express.json());
 
-app.use(cors()); // permitir conexiones de otros orígenes
-app.use(express.json()); // parsear json
+// Monta rutas
+app.use('/api/niveles-glucosa', rutasGlucosa);
+app.use('/api/usuarios', rutasUsuarios); // opcional
 
-// Rutas
-const usuariosRoutes = require('./modulos/usuarios/rutas.js');
-const glucosaRoutes = require('./modulos/glucosa/rutas.js');
-
-app.set('port', config.app.port);
-
-app.use('/api/usuarios', usuariosRoutes);
-app.use('/api/glucosa', glucosaRoutes);
+// Health
+app.get('/api/health', (_, res) => res.json({ ok: true }));
 
 module.exports = app;

@@ -1,5 +1,8 @@
+require('dotenv').config();
+const config = require('./config');
 const app = require('./app');
 
-app.listen(app.get('port'), () => {
-    console.log("Server escuchando en puerto ", app.get('port'));
+const PORT = Number(config.app.port || 4000);
+app.listen(PORT, () => {
+  console.log(`🔥 API escuchando en http://localhost:${PORT}`);
 });

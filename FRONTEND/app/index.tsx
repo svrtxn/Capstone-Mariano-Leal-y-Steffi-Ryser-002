@@ -9,7 +9,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Alert, 
+  Alert,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
@@ -33,6 +33,41 @@ function formatTime(d: Date) {
   return `${h}:${m}`;
 }
 
+// ===== Helpers backend (no cambian diseño) =====
+const CURRENT_USER_ID = 1;
+const BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ||   // tu variable
+  process.env.EXPO_PUBLIC_BACKEND_URL ||
+  (Platform.OS === "android" ? "http://10.0.2.2:4000" : "http://localhost:4000");
+
+function toISOWithToday(time: Date) {
+  const now = new Date();
+  const d = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    time.getHours(),
+    time.getMinutes(),
+    0,
+    0
+  );
+  return d.toISOString();
+}
+
+async function postJSON<T>(path: string, body: any): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status} ${res.statusText} - ${txt}`);
+  }
+  return res.json() as Promise<T>;
+}
+// ===============================================
+
 export default function IndexScreen() {
   const insets = useSafeAreaInsets(); // respeta notch/Dynamic Island
 
@@ -41,42 +76,70 @@ export default function IndexScreen() {
   const [showTime, setShowTime] = useState(false);
   const [med, setMed] = useState(false);
   const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false); // no cambia UI
 
   const glucoseNumber = Number(glucose);
   const isValid =
     glucose.trim() !== "" && !Number.isNaN(glucoseNumber) && glucoseNumber > 0;
 
-  const onSubmit = () => {
-    if (!isValid) return;
+  const onSubmit = async () => {
+    if (!isValid || submitting) return;
 
-    const payload = {
-      glucose: glucoseNumber,
-      time: formatTime(time),
-      med,
-      notes,
-    };
+    try {
+      setSubmitting(true);
 
-    console.log("Registro guardado →", payload);
+      // Armamos payload según tu backend (tabla nivelesglucosa/NivelesGlucosa)
+      const fechaISO = toISOWithToday(time);
+      const payload = {
+        usuario_id: CURRENT_USER_ID,
+        valor_glucosa: glucoseNumber,
+        unidad: "mg/dL",
+        metodo_registro: "manual",
+        origen_sensor: null,
+        fecha_registro: fechaISO,
+        etiquetado: null, // si luego agregas tags, mapéalos aquí
+        notas: med ? (notes ? `${notes} | medicación: sí` : "medicación: sí") : notes || null,
+        registrado_por: CURRENT_USER_ID,
+      };
 
-    // Confirmación visible al usuario
-    Alert.alert(
-      "Registro guardado",
-      `Se ingresaron los datos correctamente:\n\n• Glucosa: ${payload.glucose} mg/dL\n• Hora: ${payload.time}\n• Medicación: ${payload.med ? "Sí" : "No"}${
-        payload.notes ? `\n• Notas: ${payload.notes}` : ""
-      }`,
-      [
-        {
-          text: "OK",
-          onPress: () => {
-            // Reset del formulario tras confirmar
-            setGlucose("");
-            setTime(new Date());
-            setMed(false);
-            setNotes("");
-          },
-        },
-      ]
-    );
+      // POST al backend
+      const created = await postJSON<any>("/api/niveles-glucosa", payload);
+      console.log("✅ Creado en backend:", created);
+
+      // Reset inmediato (para que en web no dependa del alert)
+      setGlucose("");
+      setTime(new Date());
+      setMed(false);
+      setNotes("");
+
+      // Mensaje de éxito (web usa window.alert; nativo usa Alert.alert)
+      const hora = created?.fecha_registro
+        ? new Date(created.fecha_registro).toLocaleTimeString()
+        : formatTime(time);
+
+      const msg =
+        `Se ingresaron los datos correctamente:\n\n` +
+        `• Glucosa: ${created?.valor_glucosa ?? payload.valor_glucosa} ${created?.unidad ?? "mg/dL"}\n` +
+        `• Hora: ${hora}\n` +
+        `• Medicación: ${med ? "Sí" : "No"}` +
+        `${created?.notas ? `\n• Notas: ${created.notas}` : ""}`;
+
+      if (Platform.OS === "web" && typeof window !== "undefined" && typeof window.alert === "function") {
+        window.alert(`Registro guardado\n\n${msg}`);
+      } else {
+        Alert.alert("Registro guardado", msg);
+      }
+    } catch (e: any) {
+      console.error("❌ Error guardando:", e);
+      const m = e?.message ?? "No se pudo guardar";
+      if (Platform.OS === "web" && typeof window !== "undefined" && typeof window.alert === "function") {
+        window.alert(`Error\n\n${m}`);
+      } else {
+        Alert.alert("Error", m);
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -116,7 +179,7 @@ export default function IndexScreen() {
             Monitorea y gestiona tus niveles fácilmente.
           </Text>
 
-          {/* Nivel de glucosa */}
+        {/* Nivel de glucosa */}
           <Text style={styles.label}>Nivel de glucosa actual (mg/dL)</Text>
           <TextInput
             value={glucose}
@@ -177,20 +240,20 @@ export default function IndexScreen() {
 
           {/* Botón guardar (degradado) */}
           <TouchableOpacity
-            disabled={!isValid}
+            disabled={!isValid || submitting}
             activeOpacity={0.85}
             onPress={onSubmit}
             style={{ marginTop: 6 }}
           >
             <LinearGradient
               colors={
-                isValid
+                isValid && !submitting
                   ? [COLORS.teal, COLORS.tealLight]
                   : [COLORS.gray200, COLORS.gray200]
               }
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={[styles.button, !isValid && { opacity: 0.8 }]}
+              style={[styles.button, (!isValid || submitting) && { opacity: 0.8 }]}
             >
               <Text style={styles.buttonText}>Guardar registro</Text>
             </LinearGradient>
@@ -229,12 +292,10 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.gray200,
-    // sombra iOS
     shadowColor: "#000",
     shadowOpacity: 0.08,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
-    // sombra Android
     elevation: 3,
   },
   title: { fontSize: 20, fontWeight: "600", color: COLORS.text, marginBottom: 4 },
