@@ -1,5 +1,6 @@
 import { BASE_URL } from "../../constants/config";
 import type { GlucoseCreateRequest, Glucose } from "../types/glucose";
+import type { LoginRequest, RegisterRequest, AuthResponse } from "../types/auth";
 
 async function postJSON<T>(path: string, body: any): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -17,5 +18,13 @@ async function postJSON<T>(path: string, body: any): Promise<T> {
 export const glucoseApi = {
   create(payload: GlucoseCreateRequest) {
     return postJSON<Glucose>("/api/niveles-glucosa", payload);
+  },
+};
+export const authApi = {
+  login(payload: LoginRequest) {
+    return postJSON<AuthResponse>("/api/auth/login", payload);
+  },
+  register(payload: RegisterRequest) {
+    return postJSON<AuthResponse>("/api/auth/register", payload);
   },
 };
