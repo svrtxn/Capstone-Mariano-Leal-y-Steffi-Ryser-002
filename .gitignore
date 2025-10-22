@@ -5,4 +5,5 @@ node_modules/
 .env
 .expo
 
-# 
+# Credenciales de Firebase
+BACKEND/src/BD/firebase/serviceAccountKey.json
