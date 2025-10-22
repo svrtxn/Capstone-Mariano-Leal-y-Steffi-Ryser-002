@@ -1,17 +1,15 @@
+// src/modulos/usuarios/rutas.js
 const express = require('express');
 const router = express.Router();
-const respuestas = require('../../red/respuestas');
-const controlador = require('./controlador');
 
-router.get('/', (req, res) => {
-    const todos = controlador.todos()
-    .then((items) => {
-      respuestas.success(req, res, items, 200);
-    });
-});
+const { registroUsuario } = require('./register');
+const { login } = require('./login');              
+const { requestPasswordReset } = require('./requestPasswordReset.js');
+const { resetPassword } = require('./resetPassword');      
 
-router.get('/error', (req, res) => {
-  respuestas.error(req, res, 'No se pudo obtener usuarios', 500);
-});
+router.post('/registro', registroUsuario);
+router.post('/inicio-sesion', login);
+router.post('/solicitar-restablecer', requestPasswordReset);
+router.post('/restablecer-contrasena', resetPassword);
 
 module.exports = router;

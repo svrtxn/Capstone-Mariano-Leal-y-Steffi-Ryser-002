@@ -1,0 +1,41 @@
+POSTMAN
+REGISTRO DE USUARIO:
+POST http://localhost:8080/usuarios/registro	
+{
+  "tieneSensor": false,
+  "correo": "itsuki.maki@mail.com",
+  "contrasena": "Pass1234",
+  "nombre": "Maki",
+  "apellido": "Itsuki",
+  "fechaNacimiento": "12004-05-25",
+  "telefono": "555123789",
+  "rol": "diabetico",
+  "tipo_diabetes": "1",
+}
+
+INICIO SESIÒN
+POST http://localhost:8080/usuarios/inicio-sesion	
+ {
+  "correo": "itsuki.maki@mail.com",
+  "contrasena": "Pass1234"
+}
+
+SOLICITAR RESTABLECER
+POST http://localhost:8080/usuarios/solicitar-restablecer
+{
+  "correo": "itsuki.maki@mail.com"
+}
+
+RESTABLECER 
+POST http://localhost:8080/usuarios/restablecer-contrasena
+{
+  "correo": "itsuki.maki@mail.com",
+  "token": "6605f1b5e5a278521aa03ed09f4c46cadb788f16a6c3cb0f00d64b91f20378b0",
+  "nuevaContrasena": "NuevaContraseña123!"
+}  CAMBIAR TOKEN AL DE URL DE FRONT
+
+
+
+
+
+

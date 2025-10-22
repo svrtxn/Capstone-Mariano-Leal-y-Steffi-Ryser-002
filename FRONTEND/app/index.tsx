@@ -6,7 +6,7 @@ export default function IndexPage() {
   
   return (
     <LoginScreen
-      onLoginSuccess={(userId: number) => {  // ← AÑADE ": number" AQUÍ
+      onLoginSuccess={(userId: number) => {  
         console.log("Login exitoso:", userId);
         router.replace("./(tabs)/home");;
       }}

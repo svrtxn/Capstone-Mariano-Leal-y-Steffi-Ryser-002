@@ -1,7 +1,7 @@
 // src/modulos/glucosa/controlador.js
-const db = require('../../BD/mysql'); // pool mysql2/promise
-
-const TABLA = 'nivelesglucosa'; // ← usa el nombre real de la tabla
+const db = require('../../BD/mysql'); 
+const firebaseDB = require('../../BD/firebase/firebaseAdmin'); // Importa la configuración de Firebase Admin
+const TABLA = 'nivelesglucosa'; 
 
 // POST /api/niveles-glucosa
 exports.registrarGlucosa = async (req, res) => {
@@ -13,12 +13,13 @@ exports.registrarGlucosa = async (req, res) => {
       unidad = 'mg/dL',
       metodo_registro = 'manual',
       origen_sensor = null,
-      fecha_registro,             // ISO string esperado
-      etiquetado = null,          // 'antes_comida' | 'despues_comida' | 'ayuno' | 'otro' | null
+      fecha_registro,             
+      etiquetado = null,        
       notas = null,
       registrado_por = null
     } = req.body || {};
 
+      // validaciones
     if (!usuario_id || isNaN(Number(valor_glucosa))) {
       return res.status(400).json({ mensaje: "usuario_id y valor_glucosa válidos son obligatorios" });
     }
@@ -59,8 +60,12 @@ exports.registrarGlucosa = async (req, res) => {
     );
 
     const row = rows[0];
-    // devolver fecha como ISO para el front
     row.fecha_registro = new Date(row.fecha_registro).toISOString();
+
+    const ref = firebaseDB.ref(`niveles_glucosa/${row.usuario_id}`).push();
+    await ref.set(row);
+
+    console.log('NUEVA GLUCOSA REGISTRADA EN FIREBASE Y MYSQL:', row);
 
     return res.status(201).json(row);
   } catch (error) {
