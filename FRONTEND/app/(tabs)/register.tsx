@@ -6,7 +6,7 @@ export default function RegisterPage() {
   
   return (
     <RegisterScreen
-      onRegisterSuccess={(userId: number) => {  // ← AÑADE ": number" AQUÍ
+      onRegisterSuccess={(userId: number) => {  
         console.log("Registro exitoso:", userId);
         router.replace("/home");
       }}

@@ -62,7 +62,7 @@ exports.registrarGlucosa = async (req, res) => {
     const row = rows[0];
     row.fecha_registro = new Date(row.fecha_registro).toISOString();
 
-    const ref = firebaseDB.ref(`niveles_glucosa/${row.usuario_id}`).push();
+    const ref = firebaseDB.db.ref(`niveles_glucosa/${row.usuario_id}`).push();
     await ref.set(row);
 
     console.log('NUEVA GLUCOSA REGISTRADA EN FIREBASE Y MYSQL:', row);

@@ -17,14 +17,14 @@ async function postJSON<T>(path: string, body: any): Promise<T> {
 
 export const glucoseApi = {
   create(payload: GlucoseCreateRequest) {
-    return postJSON<Glucose>("/api/niveles-glucosa", payload);
+    return postJSON<Glucose>("/niveles-glucosa/ingesta", payload);
   },
 };
 export const authApi = {
   login(payload: LoginRequest) {
-    return postJSON<AuthResponse>("/api/auth/login", payload);
+    return postJSON<AuthResponse>("/usuarios/inicio-sesion", payload);
   },
   register(payload: RegisterRequest) {
-    return postJSON<AuthResponse>("/api/auth/register", payload);
+    return postJSON<AuthResponse>("/usuarios/registro", payload);
   },
 };

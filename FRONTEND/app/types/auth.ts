@@ -8,7 +8,7 @@ export type RegisterRequest = {
   email: string;
   password: string;
   fecha_nacimiento?: string;
-  tipo_diabetes?: "tipo1" | "tipo2" | "gestacional" | null;
+  tipo_diabetes?: "tipo1" | "tipo2" | null;
 };
 
 export type AuthResponse = {
