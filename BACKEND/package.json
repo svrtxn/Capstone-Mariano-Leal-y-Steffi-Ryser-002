@@ -14,6 +14,7 @@
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "firebase-admin": "^13.5.0",
+    "libre-link-unofficial-api": "^1.0.0-alpha.7",
     "mysql": "^2.18.1",
     "mysql2": "^3.15.1",
     "nodemailer": "^7.0.9",
