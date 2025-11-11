@@ -1,14 +1,14 @@
 const { admin } = require('../../BD/firebase/firebaseAdmin');
 const db = require('../../BD/mysql');
 const bcrypt = require('bcrypt');
-const { LibreLink } = require('libre-link-unofficial-api');
-
+const { LibreLinkClient } = require('libre-link-unofficial-api'); // ✅ Import correcto
 
 const TABLA = 'Usuarios';
 
 async function login(req, res) {
   const { correo, contrasena } = req.body;
 
+  // Validar entrada
   if (!correo || !contrasena) {
     return res.status(400).json({ ok: false, mensaje: 'Debe enviar correo y contraseña' });
   }
@@ -41,38 +41,37 @@ async function login(req, res) {
       usuario.usuario_id,
     ]);
 
-    // --- Conectar con LibreLinkUp si el usuario tiene sensor ---
-   // --- Conectar con Libre Link si el usuario tiene sensor ---
+    // --- Conexión con LibreLinkUp ---
     let lecturaLibre = null;
+
     if (usuario.tiene_sensor === 1) {
       try {
-        const { LibreLink } = require('libre-link-unofficial-api');
+        console.log('🔐 Iniciando sesión en LibreLinkUp...');
 
-        // Crea el cliente con las credenciales del usuario
-        const client = new LibreLink({
+        // ✅ Instancia correcta del cliente LibreLink
+        const client = new LibreLinkClient({
           email: correo,
           password: contrasena,
-          region: 'EU', // Cambia a 'US' o 'AP' si tu cuenta es de otra región
-          language: 'es'
+          region: 'US',          // Cambia a 'EU' o 'CA' según tu cuenta
+          language: 'es-ES',
+          lluVersion: '4.16.0',  // Opcional: versión de la app
         });
 
-        console.log('🔐 Iniciando sesión en LibreLink...');
+        // Iniciar sesión
         await client.login();
+        console.log('✅ Sesión iniciada correctamente en LibreLinkUp');
 
-        console.log('✅ Sesión iniciada correctamente.');
-
-        // Obtén los datos de glucosa más recientes
-        const lectura = await client.getGraphData();
+        // Obtener lectura actual
+        const lectura = await client.read();
         lecturaLibre = lectura;
+        console.log('📈 Lecturas obtenidas de LibreLinkUp:', lecturaLibre);
 
-        console.log('📈 Lecturas obtenidas de LibreLink:', lecturaLibre);
       } catch (err) {
-        console.error('❌ Error conectando con LibreLink:', err.message);
+        console.error('❌ Error conectando con LibreLinkUp:', err.message);
       }
     }
 
-
-    // Respuesta exitosa
+    // Respuesta final
     res.json({
       ok: true,
       mensaje: 'Login exitoso',
