@@ -6,3 +6,4 @@ node_modules/
 
 # Credenciales de Firebase
 BACKEND/src/config/serviceAccountKey.json
+"BACKEND/src/config/serviceAccountKey.json" 
