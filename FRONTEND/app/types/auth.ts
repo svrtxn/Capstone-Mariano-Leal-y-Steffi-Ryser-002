@@ -7,8 +7,12 @@ export type RegisterRequest = {
   nombre: string;
   email: string;
   password: string;
+  apellido?: string;   
   fecha_nacimiento?: string;
   tipo_diabetes?: "tipo1" | "tipo2" | null;
+  telefono?: string | null;
+  rol?: "diabetico" | "admin" | "medico";
+  tiene_sensor?: boolean;
 };
 
 export type AuthResponse = {
@@ -18,6 +22,7 @@ export type AuthResponse = {
     nombre: string;
     email: string;
     fecha_registro: string;
+    tieneSensor?: boolean;
   };
 };
 

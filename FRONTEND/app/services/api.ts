@@ -22,9 +22,26 @@ export const glucoseApi = {
 };
 export const authApi = {
   login(payload: LoginRequest) {
-    return postJSON<AuthResponse>("/usuarios/inicio-sesion", payload);
+    const body = {
+      correo: payload.email,
+      contrasena: payload.password,
+    };
+    return postJSON<AuthResponse>("/usuarios/inicio-sesion", body);
   },
+
   register(payload: RegisterRequest) {
-    return postJSON<AuthResponse>("/usuarios/registro", payload);
+    const body = {
+      correo: payload.email,
+      contrasena: payload.password,
+      nombre: payload.nombre,
+
+      apellido: (payload.apellido ?? "").trim(),
+      fechaNacimiento: payload.fecha_nacimiento ?? null,
+      telefono: payload.telefono ?? null,
+      rol: "diabetico",                        // ← fijo
+      tieneSensor: payload.tiene_sensor ?? false,
+      tipoDiabetes: payload.tipo_diabetes ?? null,
+    };
+    return postJSON<AuthResponse>("/usuarios/registro", body);
   },
 };
