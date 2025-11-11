@@ -1,8 +1,8 @@
-// src/modulos/usuarios/login.js
 const { admin } = require('../../BD/firebase/firebaseAdmin');
 const db = require('../../BD/mysql');
 const bcrypt = require('bcrypt');
-const { LibreLinkClient } = require('libre-link-unofficial-api');
+const { LibreLink } = require('libre-link-unofficial-api');
+
 
 const TABLA = 'Usuarios';
 
@@ -41,23 +41,36 @@ async function login(req, res) {
       usuario.usuario_id,
     ]);
 
-    // --- Conectar con Libre Link si tiene sensor ---
+    // --- Conectar con LibreLinkUp si el usuario tiene sensor ---
+   // --- Conectar con Libre Link si el usuario tiene sensor ---
     let lecturaLibre = null;
     if (usuario.tiene_sensor === 1) {
       try {
-        const client = new LibreLinkClient({
+        const { LibreLink } = require('libre-link-unofficial-api');
+
+        // Crea el cliente con las credenciales del usuario
+        const client = new LibreLink({
           email: correo,
           password: contrasena,
-          patientId: 'dummy'
+          region: 'EU', // Cambia a 'US' o 'AP' si tu cuenta es de otra región
+          language: 'es'
         });
-        await client.login();
-        lecturaLibre = await client.read();
-        console.log('Lectura LibreLink del usuario:', lecturaLibre);
 
+        console.log('🔐 Iniciando sesión en LibreLink...');
+        await client.login();
+
+        console.log('✅ Sesión iniciada correctamente.');
+
+        // Obtén los datos de glucosa más recientes
+        const lectura = await client.getGraphData();
+        lecturaLibre = lectura;
+
+        console.log('📈 Lecturas obtenidas de LibreLink:', lecturaLibre);
       } catch (err) {
-        console.error('Error conectando con Libre Link API:', err.message);
+        console.error('❌ Error conectando con LibreLink:', err.message);
       }
     }
+
 
     // Respuesta exitosa
     res.json({
