@@ -3,7 +3,6 @@ node_modules/
 
 # Variables de entorno
 .env
-.expo
 
 # Credenciales de Firebase
 BACKEND/src/config/serviceAccountKey.json
