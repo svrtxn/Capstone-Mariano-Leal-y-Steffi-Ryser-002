@@ -41,30 +41,25 @@ async function login(req, res) {
       usuario.usuario_id,
     ]);
 
-    // --- Conexión con LibreLinkUp ---
+    // --- Conexión con LibreLink ---
     let lecturaLibre = null;
 
     if (usuario.tiene_sensor === 1) {
       try {
         console.log('🔐 Iniciando sesión en LibreLinkUp...');
 
-        // ✅ Instancia correcta del cliente LibreLink
+        // Instancia de LibreLink
         const client = new LibreLinkClient({
           email: correo,
           password: contrasena,
-          region: 'US',          // Cambia a 'EU' o 'CA' según tu cuenta
+          region: 'US',         
           language: 'es-ES',
-          lluVersion: '4.16.0',  // Opcional: versión de la app
+          lluVersion: '4.16.0',  
         });
 
         // Iniciar sesión
         await client.login();
         console.log('✅ Sesión iniciada correctamente en LibreLinkUp');
-
-        // Obtener lectura actual
-        const lectura = await client.read();
-        lecturaLibre = lectura;
-        console.log('📈 Lecturas obtenidas de LibreLinkUp:', lecturaLibre);
 
       } catch (err) {
         console.error('❌ Error conectando con LibreLinkUp:', err.message);
