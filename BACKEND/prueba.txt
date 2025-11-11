@@ -39,3 +39,10 @@ POST http://localhost:8080/usuarios/restablecer-contrasena
 
 
 
+L: http://localhost:3000/api/glucosa/monitoreo/iniciar
+
+Body (JSON):
+
+{
+  "usuarioId": 123
+}
