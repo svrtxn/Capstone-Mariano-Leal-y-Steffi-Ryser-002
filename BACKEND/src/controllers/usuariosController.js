@@ -1,0 +1,249 @@
+// src/controllers/usuariosController.js
+const UsuarioModel = require('../models/usuarioModel');
+const { admin } = require('../config/firebaseAdmin');
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+const jwt = require('jsonwebtoken');
+const { LibreLinkClient } = require('libre-link-unofficial-api');
+const { guardarLecturaSensor } = require('../services/glucosaService');
+
+// Obtener todos los usuarios
+async function todos(req, res) {
+  try {
+    const usuarios = await UsuarioModel.obtenerTodos();
+    return res.json(usuarios);
+  } catch (error) {
+    console.error('USUARIOS.todos', error);
+    return res.status(500).json({ mensaje: 'Error interno' });
+  }
+}
+
+// Registro de usuario
+async function registroUsuario(req, res) {
+  try {
+    const {
+      correo, contrasena, nombre, apellido,
+      fechaNacimiento, telefono, rol,
+      tieneSensor, tipoDiabetes
+    } = req.body;
+
+    let lecturaLibre = null;
+
+    // --- Validación con LibreLink antes de registrar ---
+    if (tieneSensor) {
+      try {
+        const client = new LibreLinkClient({
+          email: correo,
+          password: contrasena,
+          region: 'US',
+          language: 'es-ES',
+          lluVersion: '4.16.0'
+        });
+
+        await client.login(); // Si falla, lanza excepción
+        lecturaLibre = await client.read();
+        console.log('✅ Cuenta LibreLink validada, lectura inicial:', lecturaLibre);
+
+      } catch (err) {
+        console.error('❌ Error validando LibreLink:', err.message);
+        return res.status(400).json({
+          ok: false,
+          mensaje: 'No se pudo validar la cuenta de LibreLink. Verifica correo y contraseña.'
+        });
+      }
+    }
+
+    // --- Crear usuario en DB ---
+    const hashedPassword = await bcrypt.hash(contrasena, 10);
+
+    const usuario_id = await UsuarioModel.crear({
+      nombre,
+      apellido,
+      email: correo,
+      contraseña: hashedPassword,
+      fecha_nacimiento: fechaNacimiento || null,
+      rol: rol || 'paciente',
+      telefono: telefono || null,
+      ultimo_login: new Date(),
+      fecha_creacion: new Date(),
+      tiene_sensor: tieneSensor ? 1 : 0,
+      tipo_diabetes: tipoDiabetes || null
+    });
+
+    // --- Crear usuario en Firebase ---
+    await admin.auth().createUser({
+      uid: String(usuario_id),
+      email: correo,
+      password: contrasena,
+      displayName: `${nombre} ${apellido}`
+    });
+
+    // --- Guardar lectura inicial si tiene sensor ---
+    if (lecturaLibre) await guardarLecturaSensor(lecturaLibre, usuario_id);
+
+    // --- Generar JWT ---
+    const SECRET = process.env.JWT_SECRET || 'clave_secreta';
+    const token = jwt.sign({ id: usuario_id, email: correo }, SECRET, { expiresIn: '7d' });
+
+    res.status(201).json({
+      token,
+      usuario: {
+        id: usuario_id,
+        nombre,
+        email: correo,
+        fecha_registro: new Date().toISOString(),
+        tieneSensor: !!tieneSensor
+      },
+      lecturaLibre
+    });
+
+  } catch (error) {
+    console.error('Error registroUsuario:', error);
+    res.status(500).json({ ok: false, mensaje: 'Error al registrar usuario', error: error.message });
+  }
+}
+
+
+// Inicio de sesión
+async function login(req, res) {
+  try {
+    const { correo, contrasena } = req.body;
+    if (!correo || !contrasena) return res.status(400).json({ ok: false, mensaje: 'Debe enviar correo y contraseña' });
+
+    const usuario = await UsuarioModel.obtenerPorEmail(correo);
+    if (!usuario) return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
+    if (!usuario.contraseña) return res.status(400).json({ ok: false, mensaje: 'Usuario no tiene contraseña registrada' });
+
+    const coincide = await bcrypt.compare(contrasena, usuario.contraseña);
+    if (!coincide) return res.status(401).json({ ok: false, mensaje: 'Contraseña incorrecta' });
+
+    const token = await admin.auth().createCustomToken(String(usuario.usuario_id));
+    await UsuarioModel.actualizarUltimoLogin(usuario.usuario_id);
+
+    let lecturaLibre = null;
+    if (usuario.tiene_sensor === 1) {
+      try {
+        const client = new LibreLinkClient({
+          email: correo,
+          password: contrasena,
+          region: 'US',
+          language: 'es-ES',
+          lluVersion: '4.16.0'
+        });
+
+        await client.login();
+        lecturaLibre = await client.read();
+
+        if (lecturaLibre) await guardarLecturaSensor(lecturaLibre, usuario.usuario_id);
+
+      } catch (err) {
+        console.error('❌ Error LibreLink login:', err.message);
+        lecturaLibre = null; // que no rompa el login
+      }
+    }
+
+    res.json({
+      ok: true,
+      mensaje: 'Login exitoso',
+      token,
+      usuario: {
+        id: usuario.usuario_id,
+        nombre: usuario.nombre,
+        apellido: usuario.apellido,
+        correo: usuario.email,
+        rol: usuario.rol,
+        tieneSensor: usuario.tiene_sensor === 1
+      },
+      lecturaLibre
+    });
+
+  } catch (error) {
+    console.error('Error login:', error);
+    res.status(500).json({ ok: false, mensaje: 'Error al iniciar sesión', error: error.message });
+  }
+}
+
+// Solicitar restablecimiento de contraseña
+async function requestPasswordReset(req, res) {
+  try {
+    const { correo } = req.body;
+    if (!correo) return res.status(400).json({ ok: false, mensaje: 'Debe enviar un correo' });
+
+    const usuario = await UsuarioModel.obtenerPorEmail(correo);
+    if (!usuario) return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
+
+    // --- Validación: si tiene sensor, no permitir reset desde la app ---
+    if (usuario.tiene_sensor === 1) {
+      return res.status(400).json({
+        ok: false,
+        mensaje: 'Este usuario tiene sensor. Si no recuerdas la contraseña, debes recuperarla desde LibreLink.'
+      });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = Date.now() + 3600 * 1000; // 1 hora
+
+    await UsuarioModel.actualizarResetToken(correo, token, expires);
+
+    const resetLink = `http://localhost:8081/cambiar-password?token=${token}&email=${correo}`;
+
+    const testAccount = await nodemailer.createTestAccount();
+    const transporter = nodemailer.createTransport({
+      host: testAccount.smtp.host,
+      port: testAccount.smtp.port,
+      secure: testAccount.smtp.secure,
+      auth: { user: testAccount.user, pass: testAccount.pass }
+    });
+
+    const info = await transporter.sendMail({
+      from: '"Soporte GlucoGuard" <no-reply@example.com>',
+      to: correo,
+      subject: 'Solicitud de restablecimiento de contraseña',
+      html: `<p>Hola ${usuario.nombre}, haz clic <a href="${resetLink}">aquí</a> para restablecer tu contraseña.</p>`
+    });
+
+    res.status(200).json({
+      ok: true,
+      mensaje: 'Correo de restablecimiento enviado',
+      previewURL: nodemailer.getTestMessageUrl(info)
+    });
+
+  } catch (error) {
+    console.error('Error requestPasswordReset:', error);
+    res.status(500).json({ ok: false, mensaje: 'Error al enviar correo', error: error.message });
+  }
+}
+
+
+// Cambiar contraseña
+async function resetPassword(req, res) {
+  try {
+    const { correo, token, nuevaContrasena } = req.body;
+    if (!correo || !token || !nuevaContrasena) return res.status(400).json({ ok: false, mensaje: 'Debe enviar correo, token y nueva contraseña' });
+
+    const usuario = await UsuarioModel.obtenerPorEmail(correo);
+    if (!usuario || usuario.resetToken !== token) return res.status(400).json({ ok: false, mensaje: 'Token inválido' });
+    if (usuario.resetExpires < Date.now()) return res.status(400).json({ ok: false, mensaje: 'Token expirado' });
+
+    const userRecord = await admin.auth().getUserByEmail(correo);
+    await admin.auth().updateUser(userRecord.uid, { password: nuevaContrasena });
+
+    const hashedPassword = await bcrypt.hash(nuevaContrasena, 10);
+    await UsuarioModel.actualizarContrasena(correo, hashedPassword);
+
+    res.json({ ok: true, mensaje: 'Contraseña restablecida correctamente' });
+
+  } catch (error) {
+    console.error('Error resetPassword:', error);
+    res.status(500).json({ ok: false, mensaje: 'Error al restablecer contraseña', error: error.message });
+  }
+}
+
+module.exports = {
+  todos,
+  registroUsuario,
+  login,
+  requestPasswordReset,
+  resetPassword
+};

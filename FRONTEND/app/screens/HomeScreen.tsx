@@ -1,7 +1,16 @@
-import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Image, ScrollView, Dimensions } from "react-native";
+import React, { useState, useMemo } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  ScrollView,
+  Dimensions,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { COLORS } from "../../constants/colors";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Line } from "react-native-svg";
@@ -25,7 +34,9 @@ function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
         <Text style={s.cardTitleTop}>Últimos controles</Text>
         <View style={s.emptyBox}>
           <Text style={s.emptyTitle}>Sin datos aún</Text>
-          <Text style={s.emptyText}>Registra tu primera medición para ver el gráfico aquí.</Text>
+          <Text style={s.emptyText}>
+            Registra tu primera medición para ver el gráfico aquí.
+          </Text>
         </View>
       </View>
     );
@@ -44,7 +55,9 @@ function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
 
       <View style={s.levelRow}>
         <Text style={s.levelLabel}>Nivel actual</Text>
-        <Text style={[s.levelValue, { color: getGlucoseColor(latest.level) }]}>{latest.level}</Text>
+        <Text style={[s.levelValue, { color: getGlucoseColor(latest.level) }]}>
+          {latest.level}
+        </Text>
       </View>
 
       <View style={[s.chartContainer, { width: chartWidth }]}>
@@ -106,9 +119,25 @@ export default function HomeScreen({
   userName = "Usuario",
 }: Props) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
-  // Datos que te entregará el backend: mapea a { time, level } y setRows(...)
-  const [rows] = useState<GlucoseReading[]>([]); // vacío => estado "Sin datos aún"
+  // Si llegas desde el login con params ?name=..., úsalo:
+  const params = useLocalSearchParams<{ name?: string }>();
+  const displayName = useMemo(
+    () =>
+      typeof params.name === "string" && params.name.trim()
+        ? params.name
+        : userName ?? "Usuario",
+    [params.name, userName]
+  );
+
+  // Datos del gráfico (ejemplo vacío => “Sin datos aún”)
+  const [rows] = useState<GlucoseReading[]>([]);
+
+  const handleLogout = () => {
+    // Si luego agregas persistencia, aquí limpiarías AsyncStorage
+    router.replace("/"); // ⬅ vuelve al login
+  };
 
   return (
     <View style={s.screen}>
@@ -125,16 +154,31 @@ export default function HomeScreen({
             resizeMode="contain"
           />
           <Text style={s.brand}>GlucoGuard</Text>
-          <Text style={s.welcome}>¡Bienvenido, {userName}!</Text>
+          <Text style={s.welcome}>¡Bienvenido, {displayName}!</Text>
+
+          {/* Botón de cerrar sesión */}
+          <TouchableOpacity
+            onPress={handleLogout}
+            style={s.logoutBtn}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="log-out-outline" size={18} color={COLORS.white} />
+            <Text style={s.logoutTxt}>Cerrar sesión</Text>
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={s.scrollBody} showsVerticalScrollIndicator={false}>
-        {/* === Gráfico arriba === */}
+      <ScrollView
+        contentContainerStyle={s.scrollBody}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Gráfico/estado */}
         <GlucoseChartInline readings={rows} />
 
-        {/* === Acciones debajo del gráfico === */}
-        <Text style={[s.sectionTitle, { marginTop: 20 }]}>¿Qué deseas hacer?</Text>
+        {/* Acciones */}
+        <Text style={[s.sectionTitle, { marginTop: 20 }]}>
+          ¿Qué deseas hacer?
+        </Text>
 
         {/* Registrar Glucosa */}
         <TouchableOpacity activeOpacity={0.85} onPress={onNavigateToIngesta}>
@@ -156,7 +200,11 @@ export default function HomeScreen({
         </TouchableOpacity>
 
         {/* Historial */}
-        <TouchableOpacity activeOpacity={0.85} onPress={onNavigateToHistorial} style={s.card}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={onNavigateToHistorial}
+          style={s.card}
+        >
           <View style={s.iconContainerSecondary}>
             <Ionicons name="list-outline" size={28} color={COLORS.teal} />
           </View>
@@ -168,7 +216,11 @@ export default function HomeScreen({
         </TouchableOpacity>
 
         {/* Estadísticas */}
-        <TouchableOpacity activeOpacity={0.85} onPress={onNavigateToEstadisticas} style={s.card}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={onNavigateToEstadisticas}
+          style={s.card}
+        >
           <View style={s.iconContainerSecondary}>
             <Ionicons name="stats-chart-outline" size={28} color={COLORS.teal} />
           </View>
@@ -197,9 +249,22 @@ const s = StyleSheet.create({
   brand: { color: COLORS.white, fontSize: 24, fontWeight: "700", marginTop: 10 },
   welcome: { color: COLORS.white, fontSize: 16, marginTop: 6, opacity: 0.95 },
 
+  // Botón logout
+  logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.20)",
+  },
+  logoutTxt: { color: COLORS.white, fontWeight: "600", fontSize: 13 },
+
   scrollBody: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 40 },
 
-  // --- Tarjeta del gráfico / estados ---
+  // Tarjeta del gráfico / estados
   chartCard: {
     backgroundColor: COLORS.white,
     borderRadius: 16,
@@ -213,7 +278,13 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  cardTitleTop: { color: COLORS.text, fontSize: 16, fontWeight: "600", textAlign: "center", marginBottom: 10 },
+  cardTitleTop: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 10,
+  },
   emptyBox: {
     borderWidth: 1,
     borderStyle: "dashed",
@@ -225,13 +296,13 @@ const s = StyleSheet.create({
   emptyTitle: { fontSize: 16, fontWeight: "600", color: COLORS.text, marginBottom: 4 },
   emptyText: { fontSize: 13, color: COLORS.sub, textAlign: "center" },
 
-  // --- Gráfico ---
+  // Gráfico
   levelRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
   levelLabel: { fontSize: 14, color: COLORS.sub },
   levelValue: { fontSize: 40, fontWeight: "800" },
   chartContainer: { height: 120, alignSelf: "center", marginBottom: 10 },
 
-  // --- Leyenda ---
+  // Leyenda
   legendContainer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -244,7 +315,7 @@ const s = StyleSheet.create({
   legendDot: { width: 10, height: 10, borderRadius: 5 },
   legendText: { fontSize: 12, color: COLORS.sub },
 
-  // --- Sección acciones ---
+  // Sección acciones
   sectionTitle: { fontSize: 20, fontWeight: "600", color: COLORS.text, marginBottom: 16 },
 
   // Botón “Registrar”

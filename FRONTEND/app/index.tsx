@@ -3,14 +3,18 @@ import LoginScreen from "./screens/LoginScreen";
 
 export default function IndexPage() {
   const router = useRouter();
-  
+
   return (
     <LoginScreen
-      onLoginSuccess={(userId: number) => {  
-        console.log("Login exitoso:", userId);
-        router.replace("./(tabs)/home");;
+      onLoginSuccess={({ id, name }) => {
+        console.log("Login OK:", id, name);
+        // Pasamos el nombre al Home por query param (?name=)
+        router.replace({
+          pathname: "/(tabs)/home",
+          params: { name },
+        });
       }}
-      onNavigateToRegister={() => router.push("./(tabs)/register")}
+      onNavigateToRegister={() => router.push("/register")}
     />
   );
 }

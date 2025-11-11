@@ -1,13 +1,15 @@
 {
-  "name": "node",
+  "name": "glucoguard-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Backend de GlucoGuard con Express, MySQL y Firebase",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "lint": "echo \"No linter configured yet\"",
+    "test": "echo \"No tests configured yet\""
   },
-  "author": "",
+  "author": "Tu Nombre",
   "license": "ISC",
   "dependencies": {
     "@diakem/libre-link-up-api-client": "file:libre-link-up-api-client",
@@ -18,10 +20,11 @@
     "libre-link-unofficial-api": "^1.0.0-alpha.7",
     "mysql": "^2.18.1",
     "mysql2": "^3.15.1",
-    "nodemailer": "^7.0.9",
-    "nodemon": "^3.1.10"
+    "node-cron": "^4.2.1",
+    "nodemailer": "^7.0.9"
   },
   "devDependencies": {
-    "dotenv": "^17.2.2"
+    "dotenv": "^17.2.2",
+    "nodemon": "^3.1.10"
   }
 }

@@ -11,6 +11,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS } from "../../constants/colors";
@@ -18,40 +19,51 @@ import { authApi } from "../services/api";
 import { Ionicons } from "@expo/vector-icons";
 
 type Props = {
-  onLoginSuccess?: (userId: number) => void;
+  // ⬇️ ahora mandamos id y name al padre
+  onLoginSuccess?: (info: { id: number; name: string }) => void;
   onNavigateToRegister?: () => void;
 };
 
 export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }: Props) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Validaciones
   const emailValid = email.trim() !== "" && email.includes("@");
   const passwordValid = password.length >= 6;
   const isValid = emailValid && passwordValid;
 
   const handleLogin = async () => {
     if (!isValid || loading) return;
-
     try {
       setLoading(true);
-      const response = await authApi.login({ email: email.trim(), password });
 
-      // Guardar token y usuario (aquí deberías usar AsyncStorage)
-      // await AsyncStorage.setItem("authToken", response.token);
-      // await AsyncStorage.setItem("userId", response.usuario.id.toString());
+      const res = await authApi.login({
+        email: email.trim().toLowerCase(),
+        password,
+      });
 
-      const msg = `¡Bienvenido, ${response.usuario.nombre}!`;
+      const msg = res.mensaje || `¡Bienvenido, ${res.usuario.nombre}!`;
       Platform.OS === "web" ? window.alert(msg) : Alert.alert("Inicio exitoso", msg);
 
-      onLoginSuccess?.(response.usuario.id);
+      // ⬇️ Enviamos id y nombre al padre; el padre navega y pasa ?name=
+      onLoginSuccess?.({
+        id: res.usuario.id,
+        name: res.usuario.nombre,
+      });
+
+      // Nota: No navegamos aquí para no perder el param `name`.
+      // La navegación queda en index.tsx
     } catch (e: any) {
-      const errorMsg = e?.message ?? "No se pudo iniciar sesión";
-      Platform.OS === "web" ? window.alert(`Error\n\n${errorMsg}`) : Alert.alert("Error", errorMsg);
+      const human =
+        typeof e?.message === "string"
+          ? e.message.replace(/^HTTP \d+ [\w ]+ - /, "")
+          : "No se pudo iniciar sesión";
+      Platform.OS === "web" ? window.alert(human) : Alert.alert("Error", human);
     } finally {
       setLoading(false);
     }
@@ -59,7 +71,6 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }: Pr
 
   return (
     <View style={s.screen}>
-      {/* Header con logo */}
       <LinearGradient
         colors={[COLORS.teal, COLORS.tealLight]}
         start={{ x: 0, y: 0 }}
@@ -86,7 +97,6 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }: Pr
           <Text style={s.title}>Iniciar Sesión</Text>
           <Text style={s.subtitle}>Accede a tu cuenta para continuar</Text>
 
-          {/* Input Email */}
           <Text style={s.label}>Correo electrónico</Text>
           <TextInput
             value={email}
@@ -99,7 +109,6 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }: Pr
             style={s.input}
           />
 
-          {/* Input Password */}
           <Text style={s.label}>Contraseña</Text>
           <View style={s.passwordContainer}>
             <TextInput
@@ -124,12 +133,12 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }: Pr
             </TouchableOpacity>
           </View>
 
-          {/* Forgot password */}
-          <TouchableOpacity activeOpacity={0.7} style={s.forgotContainer}>
-            <Text style={s.forgotText}>¿Olvidaste tu contraseña?</Text>
+          <TouchableOpacity onPress={() => router.push("/forgot")} activeOpacity={0.7}>
+            <Text style={{ color: COLORS.teal, marginTop: 12 }}>
+              ¿Olvidaste tu contraseña?
+            </Text>
           </TouchableOpacity>
 
-          {/* Botón Login */}
           <TouchableOpacity
             disabled={!isValid || loading}
             activeOpacity={0.85}
@@ -154,14 +163,12 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }: Pr
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Divider */}
           <View style={s.divider}>
             <View style={s.dividerLine} />
             <Text style={s.dividerText}>O</Text>
             <View style={s.dividerLine} />
           </View>
 
-          {/* Botón Registrarse */}
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={onNavigateToRegister}
@@ -172,7 +179,8 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }: Pr
         </View>
 
         <Text style={s.footerNote}>
-          Al continuar, aceptas nuestros términos de servicio y política de privacidad.
+          Al continuar, aceptas nuestros términos de servicio y política de
+          privacidad.
         </Text>
       </ScrollView>
     </View>
@@ -227,23 +235,11 @@ const s = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 8,
   },
-  passwordInput: {
-    flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: COLORS.text,
-  },
+  passwordInput: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, color: COLORS.text },
   eyeIcon: { paddingHorizontal: 12 },
-  forgotContainer: { alignSelf: "flex-end", marginBottom: 6 },
-  forgotText: { color: COLORS.teal, fontSize: 14, fontWeight: "500" },
   button: { borderRadius: 12, paddingVertical: 14, alignItems: "center" },
   buttonText: { color: COLORS.white, fontWeight: "600", fontSize: 16 },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 20,
-  },
+  divider: { flexDirection: "row", alignItems: "center", marginVertical: 20 },
   dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.gray200 },
   dividerText: { marginHorizontal: 12, color: COLORS.sub, fontSize: 14 },
   registerButton: {
