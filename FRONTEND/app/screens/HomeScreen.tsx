@@ -20,7 +20,7 @@ import {
   getCurrentUserId,
   getCurrentUserName,
   clearSession,
-  setCurrentUserName, // ⬅️ agregado para persistir el nombre
+  setCurrentUserName,
 } from "../services/session";
 
 type GlucoseReading = { time: string; level: number };
@@ -42,7 +42,6 @@ function parseTsSafe(v: any): number {
   if (!v) return NaN;
   if (v instanceof Date) return v.getTime();
   let s = String(v);
-  // si viene "2025-11-11 21:31:00", conviértelo a ISO-like
   if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s)) {
     s = s.replace(" ", "T");
   }
@@ -50,7 +49,6 @@ function parseTsSafe(v: any): number {
   return Number.isNaN(t) ? new Date(s).getTime() : t;
 }
 
-// ======= Componente de gráfico relativo (t0 = primera lectura) =======
 // ======= Componente de gráfico relativo (t0 = primera lectura) =======
 function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
   const chartWidth = Math.min(Dimensions.get("window").width - 48, 380);
@@ -60,21 +58,19 @@ function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
   const innerW = chartWidth - padL;
   const innerH = chartHeight - padB;
 
-  // Helpers robustos para fechas (maneja "YYYY-MM-DD HH:mm:ss" sin zona)
   const parseTs = (s: string) => {
-    // si viene "YYYY-MM-DD HH:mm:ss" -> trátalo como local
     if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(s)) {
       const [d, t] = s.split(" ");
       const [Y, M, D] = d.split("-").map(Number);
       const [h, m, sec] = t.split(":").map(Number);
-      return new Date(Y, (M - 1), D, h, m, sec || 0).getTime();
+      return new Date(Y, M - 1, D, h, m, sec || 0).getTime();
     }
-    return new Date(s).getTime(); // ISO/UTC/etc.
+    return new Date(s).getTime();
   };
 
   let points: GlucosePoint[] = (readings || [])
-    .map(r => ({ ts: parseTs(r.time), level: Number(r.level) }))
-    .filter(p => Number.isFinite(p.ts) && !Number.isNaN(p.level))
+    .map((r) => ({ ts: parseTs(r.time), level: Number(r.level) }))
+    .filter((p) => Number.isFinite(p.ts) && !Number.isNaN(p.level))
     .sort((a, b) => a.ts - b.ts);
 
   if (points.length === 0) {
@@ -89,27 +85,21 @@ function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
     );
   }
 
-  // t0 = primera lectura mostrada
   const t0 = points[0].ts;
-  const WINDOW_MS = 12 * 3600 * 1000;
-  const tEnd = t0 + WINDOW_MS;
+  const WINDOW_MS_LOCAL = 12 * 3600 * 1000;
+  const tEnd = t0 + WINDOW_MS_LOCAL;
 
-  // Limitamos visualmente a [t0, t0+12h]
-  points = points.filter(p => p.ts >= t0 && p.ts <= tEnd);
+  points = points.filter((p) => p.ts >= t0 && p.ts <= tEnd);
 
-  // Escalas
-  const xScale = (ts: number) => ((ts - t0) / WINDOW_MS) * innerW; // relativo a t0
-  const Y_MIN = 0, Y_MAX = 500;
+  const xScale = (ts: number) => ((ts - t0) / WINDOW_MS_LOCAL) * innerW;
   const yScale = (lvl: number) => {
     const v = Math.max(Y_MIN, Math.min(Y_MAX, lvl));
     const norm = (v - Y_MIN) / (Y_MAX - Y_MIN);
     return (1 - norm) * innerH;
   };
 
-  // Ticks
   const ticksY = [0, 100, 200, 300, 400, 500];
-  const tickHours = [0, 3, 6, 9, 12]; // 0h (t0) → 12h
-
+  const tickHours = [0, 3, 6, 9, 12];
   const latest = points[points.length - 1].level;
 
   return (
@@ -121,7 +111,6 @@ function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
 
       <View style={[s.chartContainer, { width: chartWidth, height: chartHeight }]}>
         <Svg width={chartWidth} height={chartHeight}>
-          {/* Grid Y */}
           {ticksY.map((v) => {
             const y = yScale(v);
             return (
@@ -134,7 +123,6 @@ function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
             );
           })}
 
-          {/* Grid X relativa a t0 */}
           {tickHours.map((h) => {
             const x = padL + (h / 12) * innerW;
             return (
@@ -147,11 +135,9 @@ function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
             );
           })}
 
-          {/* Ejes */}
           <Line x1={padL} y1={0} x2={padL} y2={innerH} stroke="#9CA3AF" strokeWidth={1} />
           <Line x1={padL} y1={innerH} x2={padL + innerW} y2={innerH} stroke="#9CA3AF" strokeWidth={1} />
 
-          {/* Serie */}
           {points.map((p, i) => {
             if (i === 0) return null;
             const prev = points[i - 1];
@@ -173,7 +159,6 @@ function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
             );
           })}
 
-          {/* Puntos */}
           {points.map((p, i) => {
             const cx = padL + xScale(p.ts);
             const cy = yScale(p.level);
@@ -185,18 +170,17 @@ function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
   );
 }
 
-
 type Props = {
   onNavigateToIngesta?: () => void;
   onNavigateToHistorial?: () => void;
-  onNavigateToEstadisticas?: () => void;
+  onNavigateToInfo?: () => void; // ← cambiado: antes onNavigateToEstadisticas
   userName?: string;
 };
 
 export default function HomeScreen({
   onNavigateToIngesta,
   onNavigateToHistorial,
-  onNavigateToEstadisticas,
+  onNavigateToInfo,
   userName = "Usuario",
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -223,7 +207,6 @@ export default function HomeScreen({
         return;
       }
 
-      // ⬇️ Persistimos el nombre si viene por params; si no, lo leemos de sesión
       if (typeof params.name === "string" && params.name.trim()) {
         const nm = params.name.trim();
         await setCurrentUserName(nm);
@@ -254,7 +237,6 @@ export default function HomeScreen({
         .filter((x) => !Number.isNaN(x.level))
         .sort((a, b) => parseTsSafe(a.time) - parseTsSafe(b.time));
 
-      // no recortamos aquí; la lógica de ventana la maneja el gráfico
       setRows(mapped);
     } catch (e) {
       console.warn("No se pudo cargar lecturas:", e);
@@ -326,13 +308,18 @@ export default function HomeScreen({
           <Ionicons name="chevron-forward" size={24} color={COLORS.sub} />
         </TouchableOpacity>
 
-        <TouchableOpacity activeOpacity={0.85} onPress={onNavigateToEstadisticas} style={s.card}>
+        {/* ←—————— Botón de Información (Glosario) */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => (onNavigateToInfo ? onNavigateToInfo() : router.push("./info"))}
+          style={s.card}
+        >
           <View style={s.iconContainerSecondary}>
-            <Ionicons name="stats-chart-outline" size={28} color={COLORS.teal} />
+            <Ionicons name="information-circle-outline" size={28} color={COLORS.teal} />
           </View>
           <View style={s.menuTextContainer}>
-            <Text style={s.cardTitle}>Estadísticas</Text>
-            <Text style={s.cardSubtitle}>Análisis y gráficas</Text>
+            <Text style={s.cardTitle}>Información</Text>
+            <Text style={s.cardSubtitle}>Glosario y conceptos generales</Text>
           </View>
           <Ionicons name="chevron-forward" size={24} color={COLORS.sub} />
         </TouchableOpacity>
@@ -396,20 +383,8 @@ const s = StyleSheet.create({
   emptyTitle: { fontSize: 16, fontWeight: "600", color: COLORS.text, marginBottom: 4 },
   emptyText: { fontSize: 13, color: COLORS.sub, textAlign: "center" },
   levelRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
-  levelLabel: { fontSize: 14, color: COLORS.sub },
   levelValue: { fontSize: 40, fontWeight: "800" },
   chartContainer: { height: 200, alignSelf: "center", marginBottom: 10 },
-  legendContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 18,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#e5e7eb",
-  },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 8 },
-  legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendText: { fontSize: 12, color: COLORS.sub },
   sectionTitle: { fontSize: 20, fontWeight: "600", color: COLORS.text, marginBottom: 16 },
   menuCard: {
     flexDirection: "row",

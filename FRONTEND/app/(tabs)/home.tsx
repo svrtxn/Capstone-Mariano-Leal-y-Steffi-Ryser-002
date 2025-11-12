@@ -11,9 +11,6 @@ export default function HomePage() {
       onNavigateToHistorial={() => {
         console.log("Ir a historial");
       }}
-      onNavigateToEstadisticas={() => {
-        console.log("Ir a estadísticas");
-      }}
     />
   );
 }
