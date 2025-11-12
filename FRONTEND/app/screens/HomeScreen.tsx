@@ -297,16 +297,21 @@ export default function HomeScreen({
           </LinearGradient>
         </TouchableOpacity>
 
-        <TouchableOpacity activeOpacity={0.85} onPress={onNavigateToHistorial} style={s.card}>
-          <View style={s.iconContainerSecondary}>
-            <Ionicons name="list-outline" size={28} color={COLORS.teal} />
-          </View>
-          <View style={s.menuTextContainer}>
-            <Text style={s.cardTitle}>Ver Historial</Text>
-            <Text style={s.cardSubtitle}>Consulta tus registros</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color={COLORS.sub} />
-        </TouchableOpacity>
+       <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => (onNavigateToHistorial ? onNavigateToHistorial() : router.push("./historial"))}
+        style={s.card}
+      >
+        <View style={s.iconContainerSecondary}>
+          <Ionicons name="list-outline" size={28} color={COLORS.teal} />
+        </View>
+        <View style={s.menuTextContainer}>
+          <Text style={s.cardTitle}>Ver Historial</Text>
+          <Text style={s.cardSubtitle}>Consulta tus registros</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={24} color={COLORS.sub} />
+      </TouchableOpacity>
+
 
         {/* ←—————— Botón de Información (Glosario) */}
         <TouchableOpacity

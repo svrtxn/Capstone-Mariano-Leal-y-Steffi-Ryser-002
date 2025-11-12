@@ -8,9 +8,6 @@ export default function HomePage() {
     <HomeScreen
       userName="Usuario"
       onNavigateToIngesta={() => router.push("/ingesta")}
-      onNavigateToHistorial={() => {
-        console.log("Ir a historial");
-      }}
     />
   );
 }
