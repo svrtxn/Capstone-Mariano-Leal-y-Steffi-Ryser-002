@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+// src/screens/HomeScreen.tsx
+import React, { useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,66 +11,154 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { COLORS } from "../../constants/colors";
 import { Ionicons } from "@expo/vector-icons";
-import Svg, { Line } from "react-native-svg";
+import Svg, { Line, Text as SvgText, Circle } from "react-native-svg";
+import { glucoseApi } from "../services/api";
+import {
+  getCurrentUserId,
+  getCurrentUserName,
+  clearSession,
+  setCurrentUserName, // ⬅️ agregado para persistir el nombre
+} from "../services/session";
 
-// ======= Tipos y helpers del gráfico (inline) =======
-type GlucoseReading = { time: string; level: number }; // time es decorativo; el gráfico usa el orden
+type GlucoseReading = { time: string; level: number };
+type GlucosePoint = { ts: number; level: number };
+
+const Y_MIN = 0;
+const Y_MAX = 500;
+const HOURS_WINDOW = 12;
+const WINDOW_MS = HOURS_WINDOW * 3600 * 1000;
 
 const getGlucoseColor = (level: number) => {
-  if (level < 70 || level > 180) return "#ef4444"; // crítico
-  if ((level >= 70 && level < 80) || (level > 140 && level <= 180)) return "#f59e0b"; // advertencia
-  return "#22c55e"; // normal
+  if (level < 70 || level > 180) return "#ef4444";
+  if ((level >= 70 && level < 80) || (level > 140 && level <= 180)) return "#f59e0b";
+  return "#22c55e";
 };
 
+// parser robusto para MySQL DATETIME ("YYYY-MM-DD HH:mm:ss")
+function parseTsSafe(v: any): number {
+  if (!v) return NaN;
+  if (v instanceof Date) return v.getTime();
+  let s = String(v);
+  // si viene "2025-11-11 21:31:00", conviértelo a ISO-like
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s)) {
+    s = s.replace(" ", "T");
+  }
+  const t = Date.parse(s);
+  return Number.isNaN(t) ? new Date(s).getTime() : t;
+}
+
+// ======= Componente de gráfico relativo (t0 = primera lectura) =======
+// ======= Componente de gráfico relativo (t0 = primera lectura) =======
 function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
   const chartWidth = Math.min(Dimensions.get("window").width - 48, 380);
-  const chartHeight = 120;
+  const chartHeight = 200;
+  const padL = 42;
+  const padB = 26;
+  const innerW = chartWidth - padL;
+  const innerH = chartHeight - padB;
 
-  if (!readings || readings.length === 0) {
+  // Helpers robustos para fechas (maneja "YYYY-MM-DD HH:mm:ss" sin zona)
+  const parseTs = (s: string) => {
+    // si viene "YYYY-MM-DD HH:mm:ss" -> trátalo como local
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(s)) {
+      const [d, t] = s.split(" ");
+      const [Y, M, D] = d.split("-").map(Number);
+      const [h, m, sec] = t.split(":").map(Number);
+      return new Date(Y, (M - 1), D, h, m, sec || 0).getTime();
+    }
+    return new Date(s).getTime(); // ISO/UTC/etc.
+  };
+
+  let points: GlucosePoint[] = (readings || [])
+    .map(r => ({ ts: parseTs(r.time), level: Number(r.level) }))
+    .filter(p => Number.isFinite(p.ts) && !Number.isNaN(p.level))
+    .sort((a, b) => a.ts - b.ts);
+
+  if (points.length === 0) {
     return (
       <View style={s.chartCard}>
-        <Text style={s.cardTitleTop}>Últimos controles</Text>
+        <Text style={s.cardTitleTop}>Ventana: últimas 12h</Text>
         <View style={s.emptyBox}>
-          <Text style={s.emptyTitle}>Sin datos aún</Text>
-          <Text style={s.emptyText}>
-            Registra tu primera medición para ver el gráfico aquí.
-          </Text>
+          <Text style={s.emptyTitle}>Sin datos</Text>
+          <Text style={s.emptyText}>Registra tu primera medición para iniciar el minuto 0.</Text>
         </View>
       </View>
     );
   }
 
-  const latest = readings[readings.length - 1];
+  // t0 = primera lectura mostrada
+  const t0 = points[0].ts;
+  const WINDOW_MS = 12 * 3600 * 1000;
+  const tEnd = t0 + WINDOW_MS;
 
-  const yScale = (level: number) => {
-    const normalized = (level - 60) / (200 - 60); // rango 60–200 mg/dL
-    return chartHeight - normalized * chartHeight;
+  // Limitamos visualmente a [t0, t0+12h]
+  points = points.filter(p => p.ts >= t0 && p.ts <= tEnd);
+
+  // Escalas
+  const xScale = (ts: number) => ((ts - t0) / WINDOW_MS) * innerW; // relativo a t0
+  const Y_MIN = 0, Y_MAX = 500;
+  const yScale = (lvl: number) => {
+    const v = Math.max(Y_MIN, Math.min(Y_MAX, lvl));
+    const norm = (v - Y_MIN) / (Y_MAX - Y_MIN);
+    return (1 - norm) * innerH;
   };
+
+  // Ticks
+  const ticksY = [0, 100, 200, 300, 400, 500];
+  const tickHours = [0, 3, 6, 9, 12]; // 0h (t0) → 12h
+
+  const latest = points[points.length - 1].level;
 
   return (
     <View style={s.chartCard}>
-      <Text style={s.cardTitleTop}>Últimos controles</Text>
-
       <View style={s.levelRow}>
-        <Text style={s.levelLabel}>Nivel actual</Text>
-        <Text style={[s.levelValue, { color: getGlucoseColor(latest.level) }]}>
-          {latest.level}
-        </Text>
+        <Text style={s.cardTitleTop}>Ventana: últimas 12h</Text>
+        <Text style={[s.levelValue, { color: getGlucoseColor(latest) }]}>{latest}</Text>
       </View>
 
-      <View style={[s.chartContainer, { width: chartWidth }]}>
+      <View style={[s.chartContainer, { width: chartWidth, height: chartHeight }]}>
         <Svg width={chartWidth} height={chartHeight}>
-          {readings.map((d, i) => {
+          {/* Grid Y */}
+          {ticksY.map((v) => {
+            const y = yScale(v);
+            return (
+              <React.Fragment key={`gy-${v}`}>
+                <Line x1={padL} y1={y} x2={padL + innerW} y2={y} stroke="#E5E7EB" strokeDasharray="4 4" />
+                <SvgText x={padL - 8} y={y + 3} fontSize="10" fill="#6B7280" textAnchor="end">
+                  {v}
+                </SvgText>
+              </React.Fragment>
+            );
+          })}
+
+          {/* Grid X relativa a t0 */}
+          {tickHours.map((h) => {
+            const x = padL + (h / 12) * innerW;
+            return (
+              <React.Fragment key={`gx-${h}`}>
+                <Line x1={x} y1={0} x2={x} y2={innerH} stroke="#F3F4F6" strokeDasharray="4 4" />
+                <SvgText x={x} y={innerH + 16} fontSize="10" fill="#6B7280" textAnchor="middle">
+                  {h}h
+                </SvgText>
+              </React.Fragment>
+            );
+          })}
+
+          {/* Ejes */}
+          <Line x1={padL} y1={0} x2={padL} y2={innerH} stroke="#9CA3AF" strokeWidth={1} />
+          <Line x1={padL} y1={innerH} x2={padL + innerW} y2={innerH} stroke="#9CA3AF" strokeWidth={1} />
+
+          {/* Serie */}
+          {points.map((p, i) => {
             if (i === 0) return null;
-            const prev = readings[i - 1];
-            const total = readings.length;
-            const x1 = ((i - 1) / (total - 1)) * chartWidth;
-            const x2 = (i / (total - 1)) * chartWidth;
+            const prev = points[i - 1];
+            const x1 = padL + xScale(prev.ts);
+            const x2 = padL + xScale(p.ts);
             const y1 = yScale(prev.level);
-            const y2 = yScale(d.level);
+            const y2 = yScale(p.level);
             return (
               <Line
                 key={`seg-${i}`}
@@ -77,34 +166,26 @@ function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
                 y1={y1}
                 x2={x2}
                 y2={y2}
-                stroke={getGlucoseColor(d.level)}
+                stroke={getGlucoseColor(p.level)}
                 strokeWidth={3}
                 strokeLinecap="round"
               />
             );
           })}
-        </Svg>
-      </View>
 
-      <View style={s.legendContainer}>
-        <View style={s.legendItem}>
-          <View style={[s.legendDot, { backgroundColor: "#22c55e" }]} />
-          <Text style={s.legendText}>Normal</Text>
-        </View>
-        <View style={s.legendItem}>
-          <View style={[s.legendDot, { backgroundColor: "#f59e0b" }]} />
-          <Text style={s.legendText}>Advertencia</Text>
-        </View>
-        <View style={s.legendItem}>
-          <View style={[s.legendDot, { backgroundColor: "#ef4444" }]} />
-          <Text style={s.legendText}>Crítico</Text>
-        </View>
+          {/* Puntos */}
+          {points.map((p, i) => {
+            const cx = padL + xScale(p.ts);
+            const cy = yScale(p.level);
+            return <Circle key={`pt-${i}`} cx={cx} cy={cy} r={3} fill={getGlucoseColor(p.level)} />;
+          })}
+        </Svg>
       </View>
     </View>
   );
 }
 
-// =============== Pantalla ===============
+
 type Props = {
   onNavigateToIngesta?: () => void;
   onNavigateToHistorial?: () => void;
@@ -121,23 +202,71 @@ export default function HomeScreen({
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  // Si llegas desde el login con params ?name=..., úsalo:
   const params = useLocalSearchParams<{ name?: string }>();
-  const displayName = useMemo(
-    () =>
-      typeof params.name === "string" && params.name.trim()
-        ? params.name
-        : userName ?? "Usuario",
-    [params.name, userName]
-  );
+  const [nameFromSession, setNameFromSession] = useState<string | null>(null);
+  const displayName = useMemo(() => {
+    const fromParams = typeof params.name === "string" && params.name.trim() ? params.name : "";
+    return fromParams || nameFromSession || userName || "Usuario";
+  }, [params.name, nameFromSession, userName]);
 
-  // Datos del gráfico (ejemplo vacío => “Sin datos aún”)
-  const [rows] = useState<GlucoseReading[]>([]);
+  const [rows, setRows] = useState<GlucoseReading[]>([]);
 
   const handleLogout = () => {
-    // Si luego agregas persistencia, aquí limpiarías AsyncStorage
-    router.replace("/"); // ⬅ vuelve al login
+    clearSession().finally(() => router.replace("/"));
   };
+
+  const loadReadings = useCallback(async () => {
+    try {
+      const uid = await getCurrentUserId();
+      if (!uid) {
+        router.replace("/");
+        return;
+      }
+
+      // ⬇️ Persistimos el nombre si viene por params; si no, lo leemos de sesión
+      if (typeof params.name === "string" && params.name.trim()) {
+        const nm = params.name.trim();
+        await setCurrentUserName(nm);
+        setNameFromSession(nm);
+      } else {
+        const nm = await getCurrentUserName();
+        if (nm) setNameFromSession(nm);
+      }
+
+      const data = await glucoseApi.listByUser();
+
+      const soloMias = (Array.isArray(data) ? data : []).filter((r: any) => {
+        const id =
+          r.usuario_id ??
+          r.user_id ??
+          r.usuarioId ??
+          r.userId ??
+          r.userid ??
+          r.UsuarioId;
+        return Number(id) === Number(uid);
+      });
+
+      let mapped: GlucoseReading[] = soloMias
+        .map((r: any) => ({
+          time: (r.fecha_registro || r.fechaISO || r.fecha || r.created_at) as string,
+          level: Number(r.valor_glucosa ?? r.valor ?? r.level),
+        }))
+        .filter((x) => !Number.isNaN(x.level))
+        .sort((a, b) => parseTsSafe(a.time) - parseTsSafe(b.time));
+
+      // no recortamos aquí; la lógica de ventana la maneja el gráfico
+      setRows(mapped);
+    } catch (e) {
+      console.warn("No se pudo cargar lecturas:", e);
+      setRows([]);
+    }
+  }, [router, params.name]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadReadings();
+    }, [loadReadings])
+  );
 
   return (
     <View style={s.screen}>
@@ -156,31 +285,18 @@ export default function HomeScreen({
           <Text style={s.brand}>GlucoGuard</Text>
           <Text style={s.welcome}>¡Bienvenido, {displayName}!</Text>
 
-          {/* Botón de cerrar sesión */}
-          <TouchableOpacity
-            onPress={handleLogout}
-            style={s.logoutBtn}
-            activeOpacity={0.85}
-          >
+          <TouchableOpacity onPress={handleLogout} style={s.logoutBtn} activeOpacity={0.85}>
             <Ionicons name="log-out-outline" size={18} color={COLORS.white} />
             <Text style={s.logoutTxt}>Cerrar sesión</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
 
-      <ScrollView
-        contentContainerStyle={s.scrollBody}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Gráfico/estado */}
+      <ScrollView contentContainerStyle={s.scrollBody} showsVerticalScrollIndicator={false}>
         <GlucoseChartInline readings={rows} />
 
-        {/* Acciones */}
-        <Text style={[s.sectionTitle, { marginTop: 20 }]}>
-          ¿Qué deseas hacer?
-        </Text>
+        <Text style={[s.sectionTitle, { marginTop: 20 }]}>¿Qué deseas hacer?</Text>
 
-        {/* Registrar Glucosa */}
         <TouchableOpacity activeOpacity={0.85} onPress={onNavigateToIngesta}>
           <LinearGradient
             colors={[COLORS.teal, COLORS.tealLight]}
@@ -199,12 +315,7 @@ export default function HomeScreen({
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Historial */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={onNavigateToHistorial}
-          style={s.card}
-        >
+        <TouchableOpacity activeOpacity={0.85} onPress={onNavigateToHistorial} style={s.card}>
           <View style={s.iconContainerSecondary}>
             <Ionicons name="list-outline" size={28} color={COLORS.teal} />
           </View>
@@ -215,12 +326,7 @@ export default function HomeScreen({
           <Ionicons name="chevron-forward" size={24} color={COLORS.sub} />
         </TouchableOpacity>
 
-        {/* Estadísticas */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={onNavigateToEstadisticas}
-          style={s.card}
-        >
+        <TouchableOpacity activeOpacity={0.85} onPress={onNavigateToEstadisticas} style={s.card}>
           <View style={s.iconContainerSecondary}>
             <Ionicons name="stats-chart-outline" size={28} color={COLORS.teal} />
           </View>
@@ -237,7 +343,6 @@ export default function HomeScreen({
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.bg },
-
   header: {
     paddingHorizontal: 24,
     paddingBottom: 32,
@@ -248,8 +353,6 @@ const s = StyleSheet.create({
   logo: { width: 64, height: 64 },
   brand: { color: COLORS.white, fontSize: 24, fontWeight: "700", marginTop: 10 },
   welcome: { color: COLORS.white, fontSize: 16, marginTop: 6, opacity: 0.95 },
-
-  // Botón logout
   logoutBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -261,10 +364,7 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.20)",
   },
   logoutTxt: { color: COLORS.white, fontWeight: "600", fontSize: 13 },
-
   scrollBody: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 40 },
-
-  // Tarjeta del gráfico / estados
   chartCard: {
     backgroundColor: COLORS.white,
     borderRadius: 16,
@@ -295,14 +395,10 @@ const s = StyleSheet.create({
   },
   emptyTitle: { fontSize: 16, fontWeight: "600", color: COLORS.text, marginBottom: 4 },
   emptyText: { fontSize: 13, color: COLORS.sub, textAlign: "center" },
-
-  // Gráfico
   levelRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
   levelLabel: { fontSize: 14, color: COLORS.sub },
   levelValue: { fontSize: 40, fontWeight: "800" },
-  chartContainer: { height: 120, alignSelf: "center", marginBottom: 10 },
-
-  // Leyenda
+  chartContainer: { height: 200, alignSelf: "center", marginBottom: 10 },
   legendContainer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -314,11 +410,7 @@ const s = StyleSheet.create({
   legendItem: { flexDirection: "row", alignItems: "center", gap: 8 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
   legendText: { fontSize: 12, color: COLORS.sub },
-
-  // Sección acciones
   sectionTitle: { fontSize: 20, fontWeight: "600", color: COLORS.text, marginBottom: 16 },
-
-  // Botón “Registrar”
   menuCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -331,8 +423,6 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
-
-  // Cards secundarias
   card: {
     backgroundColor: COLORS.white,
     flexDirection: "row",
@@ -348,7 +438,6 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-
   iconContainer: {
     width: 48,
     height: 48,

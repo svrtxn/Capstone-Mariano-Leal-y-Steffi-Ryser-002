@@ -1,14 +1,22 @@
+// src/screens/IngestaScreen.tsx
 import React from "react";
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router"; // <-- Importar router
+import { useRouter } from "expo-router";
 import GlucoseForm from "../../components/GlucoseForm";
 import { COLORS } from "../../constants/colors";
 
 export default function IngestaScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter(); // <-- Hook de navegación
+  const router = useRouter();
 
   return (
     <View style={s.screen}>
@@ -19,14 +27,17 @@ export default function IngestaScreen() {
         style={[s.header, { paddingTop: insets.top + 16 }]}
       >
         <View style={s.headerInner}>
-          {/* Flecha para volver al Home */}
+          {/* Flecha para volver (respeta la pila de navegación) */}
           <TouchableOpacity
-          style={s.backButton}
-          onPress={() => router.replace("/home")} // <--- Ruta absoluta
-        >
-          <Text style={s.backButtonText}>←</Text>
-        </TouchableOpacity>
-
+            accessibilityRole="button"
+            accessibilityLabel="Volver"
+            onPress={() => router.back()}
+            style={s.backButton}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={0.7}
+          >
+            <Text style={s.backButtonText}>←</Text>
+          </TouchableOpacity>
 
           <Image
             source={require("../../assets/images/glucoguard_logo_blanco.png")}
@@ -37,7 +48,11 @@ export default function IngestaScreen() {
         </View>
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={[s.scrollBody, { marginTop: 30 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[s.scrollBody, { marginTop: 30 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <GlucoseForm />
       </ScrollView>
     </View>
@@ -46,13 +61,17 @@ export default function IngestaScreen() {
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.bg },
-  header: { paddingHorizontal: 24, paddingBottom: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  header: {
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
   headerInner: { alignItems: "center", position: "relative" },
   logo: { width: 56, height: 56 },
   brand: { color: COLORS.white, fontSize: 22, fontWeight: "600", marginTop: 8 },
   scrollBody: { paddingHorizontal: 20, paddingBottom: 28 },
 
-  // Estilos de la flecha de volver
   backButton: {
     position: "absolute",
     left: 16,
