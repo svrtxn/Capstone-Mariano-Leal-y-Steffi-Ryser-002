@@ -1,7 +1,10 @@
 // src/controllers/glucosaController.js
 
 const GlucosaModel = require('../models/glucosaModel');
+const ConfigModel = require('../models/configModel');
+const AlertasModel = require('../models/alertasModel');
 const firebaseDB = require('../config/firebaseAdmin');
+const clasificarAlerta = require('../utils/clasificarAlerta');
 
 const {
   iniciarMonitoreoUsuario: iniciarMonitoreoService,
@@ -29,7 +32,9 @@ exports.registrarGlucosa = async (req, res) => {
       registrado_por = null
     } = req.body || {};
 
-    // 🔹 Validaciones
+    // ------------------------------
+    // VALIDACIONES
+    // ------------------------------
     if (!usuario_id || isNaN(Number(valor_glucosa))) {
       return res.status(400).json({ mensaje: "usuario_id y valor_glucosa válidos son obligatorios" });
     }
@@ -43,7 +48,9 @@ exports.registrarGlucosa = async (req, res) => {
       return res.status(400).json({ mensaje: "etiquetado inválido" });
     }
 
-    // 🔹 Crear registro en MySQL usando el modelo
+    // ------------------------------
+    // GUARDAR EN MYSQL
+    // ------------------------------
     const insertId = await GlucosaModel.crear({
       usuario_id,
       valor_glucosa: Number(valor_glucosa),
@@ -56,25 +63,58 @@ exports.registrarGlucosa = async (req, res) => {
       registrado_por
     });
 
-    // 🔹 Obtener la fila recién insertada
+    // Obtener fila insertada
     const row = await GlucosaModel.obtenerPorId(insertId);
     if (!row) {
       return res.status(500).json({ mensaje: "Error al recuperar el registro insertado" });
     }
 
-    // 🔹 Normalizar fecha
     row.fecha_registro = new Date(row.fecha_registro).toISOString();
 
-    // 🔹 Guardar también en Firebase
+
+// =========================================
+// 🚨 HU05 — GENERACIÓN DE ALERTAS
+// =========================================
+  let resultadoAlerta = { tipo: "sin_config" };
+
+  const configUsuario = await ConfigModel.obtenerPorUsuario(usuario_id);
+
+  if (configUsuario && configUsuario.notificaciones === 1) {
+    resultadoAlerta = clasificarAlerta(Number(valor_glucosa), configUsuario);
+
+    if (resultadoAlerta.tipo !== "verde") {
+      await AlertasModel.crear({
+        usuario_id,
+        tipo_alerta: resultadoAlerta.tipo,
+        valor_disparador: Number(valor_glucosa),
+        comparador: resultadoAlerta.comparador,
+        estado: "pendiente",
+        canal: "push",
+        prioridad: resultadoAlerta.prioridad
+      });
+    }
+  }
+
+
+    // ------------------------------
+    // GUARDA TAMBIÉN EN FIREBASE
+    // ------------------------------
     const ref = firebaseDB.db.ref(`niveles_glucosa/${row.usuario_id}`).push();
     await ref.set(row);
 
-    console.log('✅ NUEVA GLUCOSA REGISTRADA EN FIREBASE Y MYSQL:', row);
-    return res.status(201).json(row);
+    console.log("🚀 ALERTA GENERADA:", resultadoAlerta);
+
+    return res.status(201).json({
+      ...row,
+      alerta: resultadoAlerta.tipo
+    });
 
   } catch (error) {
     console.error('❌ ERROR EN REGISTRAR GLUCOSA:', error);
-    return res.status(500).json({ mensaje: "Error al registrar la glucosa", error: error.message });
+    return res.status(500).json({
+      mensaje: "Error al registrar la glucosa",
+      error: error.message
+    });
   }
 };
 

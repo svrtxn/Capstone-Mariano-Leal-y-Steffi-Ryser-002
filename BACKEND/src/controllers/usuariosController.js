@@ -29,6 +29,7 @@ async function registroUsuario(req, res) {
     } = req.body;
 
     let lecturaLibre = null;
+    let contrasenaLibreLink = null;
 
     // --- Validación con LibreLink antes de registrar ---
     if (tieneSensor) {
@@ -44,6 +45,9 @@ async function registroUsuario(req, res) {
         await client.login(); // Si falla, lanza excepción
         lecturaLibre = await client.read();
         console.log('✅ Cuenta LibreLink validada, lectura inicial:', lecturaLibre);
+
+        // Guardar la contraseña de LibreLink en texto plano SOLO si tiene sensor
+        contrasenaLibreLink = contrasena;
 
       } catch (err) {
         console.error('❌ Error validando LibreLink:', err.message);
@@ -68,12 +72,13 @@ async function registroUsuario(req, res) {
       ultimo_login: new Date(),
       fecha_creacion: new Date(),
       tiene_sensor: tieneSensor ? 1 : 0,
-      tipo_diabetes: tipoDiabetes || null
+      tipo_diabetes: tipoDiabetes || null,
+      // Agregar la columna de LibreLink solo si existe
+      ...(tieneSensor && { contrasena_librelink: contrasenaLibreLink })
     });
 
     // --- Crear usuario en Firebase ---
     await admin.auth().createUser({
-      uid: String(usuario_id),
       email: correo,
       password: contrasena,
       displayName: `${nombre} ${apellido}`
@@ -103,6 +108,7 @@ async function registroUsuario(req, res) {
     res.status(500).json({ ok: false, mensaje: 'Error al registrar usuario', error: error.message });
   }
 }
+
 
 
 // Inicio de sesión

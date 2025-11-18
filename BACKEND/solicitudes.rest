@@ -1,4 +1,74 @@
-POST http://localhost:8080/config/4
+
+### Registro de Usuario
+POST http://localhost:8080/usuarios/registro
+Content-Type: application/json
+
+{
+  "tieneSensor": true,
+  "correo": "steffi.ryser.t@gmail.com",
+  "contrasena": "Comelonmas1.",
+  "nombre": "Steffi",
+  "apellido": "Ryser",
+  "fechaNacimiento": "2004-05-25",
+  "telefono": "955523789",
+  "rol": "diabetico",
+  "tipo_diabetes": "1"
+}
+
+### Registro de Usuario sin sensor
+POST http://localhost:8080/usuarios/registro
+Content-Type: application/json
+
+{
+  "tieneSensor": false,
+  "correo": "steffi.ryser.t@mail.com",
+  "contrasena": "Comelonmas1.",
+  "nombre": "Steffi",
+  "apellido": "Ryser",
+  "fechaNacimiento": "2004-05-25",
+  "telefono": "955523789",
+  "rol": "diabetico",
+  "tipo_diabetes": "1"
+}
+
+### Inicio de Sesión
+POST http://localhost:8080/usuarios/inicio-sesion
+Content-Type: application/json
+
+{
+  "correo": "steffi.ryser.t@gmail.com",
+  "contrasena": "Comelonmas1."
+}
+
+### Inicio de Sesión 2
+POST http://localhost:8080/usuarios/inicio-sesion
+Content-Type: application/json
+
+{
+  "correo": "steffi.ryser.t@mail.com",
+  "contrasena": "Comelonmas1."
+}
+
+### Solicitar Restablecer Contraseña
+POST http://localhost:8080/usuarios/solicitar-restablecer
+Content-Type: application/json
+
+{
+  "correo": "steffi.ryser.t@mail.com"
+}
+
+### Restablecer Contraseña
+POST http://localhost:8080/usuarios/restablecer-contrasena
+Content-Type: application/json
+
+{
+  "correo": "steffi.ryser.t@mail.com",
+  "token": "3472637b2da4543169cf326cc4c2294a0998adeef3564e5c86926568489ab65e",
+  "nuevaContrasena": "NuevaContraseña123!"
+}
+
+### Configuración de Usuario
+POST http://localhost:8080/config/7
 Content-Type: application/json
 
 {
@@ -11,3 +81,40 @@ Content-Type: application/json
   "zona_horaria": "America/Santiago",
   "idioma": "es"
 }
+
+###
+GET http://localhost:8080/config/7
+
+### Niveles de Glucosa
+POST http://localhost:8080/niveles-glucosa/ingesta
+Content-Type: application/json
+
+{
+  "usuario_id": 7,
+  "valor_glucosa": 190,
+  "fecha_registro": "2025-01-19T15:30:00Z",
+  "metodo_registro": "manual",
+  "etiquetado": "ayuno",
+  "notas": "prueba manual"
+}
+
+### Iniciar Monitoreo REAL de un Usuario
+POST http://localhost:8080/niveles-glucosa/monitoreo/iniciar
+Content-Type: application/json
+
+{
+  "usuarioId": 7,
+  "intervalo": 300000
+}
+
+### Detener Monitoreo REAL de un Usuario
+POST http://localhost:8080/niveles-glucosa/monitoreo/detener
+Content-Type: application/json
+
+{
+  "usuarioId": 7
+}
+
+###
+### Obtener Última Lectura de un Usuario
+GET http://localhost:8080/niveles-glucosa/monitoreo/ultima-lectura/

@@ -299,6 +299,22 @@ COMMIT;
 ALTER TABLE nivelesglucosa
 ADD COLUMN estado_glucosa ENUM('hipo','normal','hiper','fuera_rango') DEFAULT NULL AFTER valor_glucosa;
 
+ALTER TABLE `usuarios`
+MODIFY COLUMN `tipo_diabetes` ENUM('tipo1','tipo2') DEFAULT NULL COMMENT 'Tipo de diabetes del usuario';
+
+ALTER TABLE usuarios
+ADD COLUMN contrasena_librelink VARCHAR(255) 
+CHARACTER SET utf8mb4 
+COLLATE utf8mb4_unicode_ci 
+DEFAULT NULL 
+COMMENT 'Contraseña en texto plano para LibreLink (solo para login externo)';
+
+-- Para MySQL
+ALTER TABLE nombre_tabla 
+MODIFY COLUMN nombre_columna VARCHAR(255); 
+
+
+
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;

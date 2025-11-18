@@ -1,4 +1,3 @@
-// src/models/usuarioModel.js
 const db = require('../config/mysql');
 
 const TABLA = 'Usuarios';
@@ -37,13 +36,14 @@ const UsuarioModel = {
       tiene_sensor = 0,
       resetToken = null,
       resetExpires = null,
-      tipo_diabetes = null
+      tipo_diabetes = null,
+      contrasena_librelink = null 
     } = usuario;
 
     const insertSQL = `
       INSERT INTO ${TABLA}
-      (nombre, apellido, email, contraseña, fecha_nacimiento, rol, telefono, ultimo_login, fecha_creacion, tiene_sensor, resetToken, resetExpires, tipo_diabetes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (nombre, apellido, email, contraseña, fecha_nacimiento, rol, telefono, ultimo_login, fecha_creacion, tiene_sensor, resetToken, resetExpires, tipo_diabetes, contrasena_librelink)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const [result] = await db.query(insertSQL, [
@@ -59,7 +59,8 @@ const UsuarioModel = {
       tiene_sensor,
       resetToken,
       resetExpires,
-      tipo_diabetes
+      tipo_diabetes,
+      contrasena_librelink
     ]);
 
     return result.insertId;
@@ -88,7 +89,17 @@ const UsuarioModel = {
       UPDATE ${TABLA} SET ultimo_login = ? WHERE usuario_id = ?
     `;
     await db.query(updateSQL, [new Date(), usuario_id]);
+  },
+
+  // Obtener credenciales (incluye contrasena_librelink)
+  async obtenerCredenciales(usuarioId) {
+    const [rows] = await db.query(
+      `SELECT email, contraseña, tiene_sensor, contrasena_librelink FROM ${TABLA} WHERE usuario_id = ?`,
+      [usuarioId]
+    );
+    return rows[0];
   }
+
 };
 
 module.exports = UsuarioModel;
