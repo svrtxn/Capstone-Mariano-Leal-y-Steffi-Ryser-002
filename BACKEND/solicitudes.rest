@@ -1,0 +1,13 @@
+POST http://localhost:8080/config/4
+Content-Type: application/json
+
+{
+  "hipo_min": 70,
+  "normal_min": 80,
+  "normal_max": 140,
+  "hiper_max": 180,
+  "frecuencia_medicion": 240,
+  "notificaciones": 1,
+  "zona_horaria": "America/Santiago",
+  "idioma": "es"
+}
