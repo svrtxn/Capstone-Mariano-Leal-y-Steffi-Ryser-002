@@ -203,11 +203,69 @@ async function requestPasswordReset(req, res) {
     });
 
     const info = await transporter.sendMail({
-      from: '"Soporte GlucoGuard" <no-reply@example.com>',
+      from: '"Soporte GlucoGuard" soporte@glucoguard.cl>',
       to: correo,
-      subject: 'Solicitud de restablecimiento de contraseña',
-      html: `<p>Hola ${usuario.nombre}, haz clic <a href="${resetLink}">aquí</a> para restablecer tu contraseña.</p>`
+      subject: 'Restablecimiento de contraseña — GlucoGuard',
+      html: `
+      <div style="font-family: Arial, sans-serif; background-color:#f6f7f9; padding:30px;">
+        <div style="max-width:600px; margin:auto; background:white; border-radius:12px; overflow:hidden; box-shadow:0 4px 15px rgba(0,0,0,0.1);">
+
+          <!-- Encabezado -->
+          <div style="background:#3DB7C4; padding:25px; text-align:center;">
+            <img src="https://i.postimg.cc/jS9NsK9D/glucoguard-text-white.png" alt="GlucoGuard" style="width:120px; margin-bottom:10px;" />
+            <h1 style="color:white; margin:0; font-size:22px; font-weight:600;">
+              Restablecimiento de Contraseña
+            </h1>
+          </div>
+
+          <!-- Cuerpo -->
+          <div style="padding:30px; font-size:15px; color:#333; line-height:1.6;">
+            <p>Hola <b>${usuario.nombre}</b>,</p>
+
+            <p>
+              Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en <b>GlucoGuard</b>.
+              Si fuiste tú, por favor presiona el siguiente botón para continuar:
+            </p>
+
+            <div style="text-align:center; margin:30px 0;">
+              <a href="${resetLink}"
+                style="
+                  background:#3DB7C4;
+                  color:white;
+                  padding:14px 24px;
+                  border-radius:8px;
+                  text-decoration:none;
+                  font-size:16px;
+                  font-weight:bold;
+                  display:inline-block;
+                "
+              >
+                Restablecer Contraseña
+              </a>
+            </div>
+
+            <p>
+              Si no solicitaste este cambio, puedes ignorar este mensaje.  
+              El enlace expirará en <b>1 hora</b> por motivos de seguridad.
+            </p>
+
+            <p style="margin-top:30px;">
+              Saludos,<br>
+              <b>Equipo GlucoGuard</b>
+            </p>
+          </div>
+
+          <!-- Footer -->
+          <div style="background:#f0f0f0; padding:15px; text-align:center; font-size:12px; color:#777;">
+            © ${new Date().getFullYear()} GlucoGuard — Todos los derechos reservados.<br>
+            Este correo se envió automáticamente, por favor no respondas a este mensaje.
+          </div>
+
+        </div>
+      </div>
+      `
     });
+
 
     res.status(200).json({
       ok: true,

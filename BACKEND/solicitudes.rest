@@ -54,7 +54,7 @@ POST http://localhost:8080/usuarios/solicitar-restablecer
 Content-Type: application/json
 
 {
-  "correo": "steffi.ryser.t@mail.com"
+  "correo": "itsuki.maki@gmail.com"
 }
 
 ### Restablecer Contraseña
