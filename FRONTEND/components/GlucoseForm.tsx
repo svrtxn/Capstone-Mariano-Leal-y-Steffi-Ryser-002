@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, Switch, Platform, Alert, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Switch,
+  Platform,
+  StyleSheet,
+} from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
 import { COLORS } from "../constants/colors";
-import { toISOWithToday } from "../app/utils/datetime"; // ← si no tienes alias, cámbialo por ../utils/datetime
-import { glucoseApi } from "app/services/api";       // ← usa el API que inyecta usuario_id
+import { toISOWithToday } from "../app/utils/datetime";
+import { glucoseApi } from "app/services/api";
 import { getCurrentUserId } from "app/services/session";
 
 type Props = { onSaved?: () => void };
 
-// helper simple para mostrar hora
 function formatTime(d: Date) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
@@ -23,7 +30,9 @@ export default function GlucoseForm({ onSaved }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [glucoseError, setGlucoseError] = useState<string | null>(null);
 
-  // DEBUG: confirma que hay user en sesión
+  // 🎉 Nuevo mensaje no modal
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
   useEffect(() => {
     getCurrentUserId().then((id) => console.log("DEBUG gg:user_id =", id));
   }, []);
@@ -38,6 +47,7 @@ export default function GlucoseForm({ onSaved }: Props) {
   const handleGlucoseChange = (value: string) => {
     setGlucose(value);
     const num = Number(value);
+
     if (value.trim() === "" || Number.isNaN(num)) {
       setGlucoseError(null);
     } else if (num < 40) {
@@ -51,21 +61,23 @@ export default function GlucoseForm({ onSaved }: Props) {
 
   const onSubmit = async () => {
     if (!isValid || submitting) return;
+
     try {
       setSubmitting(true);
+      setSaveMessage(null);
 
-      // Enviamos fecha_registro como ISO (hoy + hora elegida)
       const payload = {
         valor_glucosa: glucoseNumber,
         unidad: "mg/dL" as const,
         metodo_registro: "manual" as const,
         origen_sensor: null,
-        fecha_registro: toISOWithToday(time),  // ← requerido por tu backend
+        fecha_registro: toISOWithToday(time),
         etiquetado: null,
         notas: med ? (notes ? `${notes} | medicación: sí` : "medicación: sí") : notes || null,
       };
 
-      console.log("DEBUG payload a enviar =", payload);
+      console.log("DEBUG payload =", payload);
+
       const created = await glucoseApi.create(payload);
 
       // reset UI
@@ -78,18 +90,17 @@ export default function GlucoseForm({ onSaved }: Props) {
         ? new Date(created.fecha_registro).toLocaleTimeString()
         : formatTime(time);
 
-      const msg =
-        `• Glucosa: ${created?.valor_glucosa ?? glucoseNumber} ${created?.unidad ?? "mg/dL"}` +
-        `\n• Hora: ${hora}` +
-        `\n• Medicación: ${med ? "Sí" : "No"}` +
-        (created?.notas ? `\n• Notas: ${created.notas}` : "");
+      const msg = `✔ Glucosa registrada: ${created?.valor_glucosa ?? glucoseNumber} mg/dL a las ${hora}`;
 
-      Platform.OS === "web" ? window.alert(`Registro guardado\n\n${msg}`) : Alert.alert("Registro guardado", msg);
-      onSaved?.();
+      // 🎉 Ahora mensaje elegante, NO alerta
+      setSaveMessage(msg);
+      setTimeout(() => setSaveMessage(null), 4000);
+
+      onSaved?.();      
     } catch (e: any) {
-      const m = e?.message ?? "No se pudo guardar";
-      Platform.OS === "web" ? window.alert(`Error\n\n${m}`) : Alert.alert("Error", m);
-      console.log("DEBUG error create:", e);
+      const m = e?.message ?? "Error desconocido";
+      setSaveMessage(`❌ ${m}`);
+      setTimeout(() => setSaveMessage(null), 4000);
     } finally {
       setSubmitting(false);
     }
@@ -109,10 +120,10 @@ export default function GlucoseForm({ onSaved }: Props) {
         placeholderTextColor={COLORS.sub}
         style={s.input}
       />
-      {glucoseError && <Text style={{ color: "red", marginBottom: 8 }}>{glucoseError}</Text>}
+      {glucoseError && <Text style={s.errorText}>{glucoseError}</Text>}
 
       <Text style={s.label}>Hora de la medición</Text>
-      <TouchableOpacity onPress={() => setShowTime(true)} activeOpacity={0.7} style={s.input}>
+      <TouchableOpacity onPress={() => setShowTime(true)} style={s.input}>
         <Text style={s.timeText}>{formatTime(time)}</Text>
       </TouchableOpacity>
 
@@ -152,16 +163,39 @@ export default function GlucoseForm({ onSaved }: Props) {
         multiline
       />
 
-      <TouchableOpacity disabled={!isValid || submitting} activeOpacity={0.85} onPress={onSubmit} style={{ marginTop: 6 }}>
+      <TouchableOpacity
+        disabled={!isValid || submitting}
+        activeOpacity={0.85}
+        onPress={onSubmit}
+        style={{ marginTop: 6 }}
+      >
         <LinearGradient
-          colors={isValid && !submitting ? [COLORS.teal, COLORS.tealLight] : [COLORS.gray200, COLORS.gray200]}
+          colors={
+            isValid && !submitting
+              ? [COLORS.teal, COLORS.tealLight]
+              : [COLORS.gray200, COLORS.gray200]
+          }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[s.button, (!isValid || submitting) && { opacity: 0.8 }]}
+          style={[s.button, (!isValid || submitting) && { opacity: 0.7 }]}
         >
-          <Text style={s.buttonText}>Guardar registro</Text>
+          <Text style={s.buttonText}>
+            {submitting ? "Guardando..." : "Guardar registro"}
+          </Text>
         </LinearGradient>
       </TouchableOpacity>
+
+      {/* 🎉 Mensaje elegante */}
+      {saveMessage && (
+        <Text
+          style={[
+            s.saveMsg,
+            saveMessage.startsWith("❌") && { color: "#ef4444" },
+          ]}
+        >
+          {saveMessage}
+        </Text>
+      )}
 
       <Text style={s.footerNote}>Tus datos están protegidos con GlucoGuard.</Text>
     </View>
@@ -195,11 +229,28 @@ const s = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 12,
   },
+  errorText: { color: "red", marginBottom: 8 },
   textarea: { height: 110, textAlignVertical: "top" },
   timeText: { fontSize: 16, color: COLORS.text },
-  switchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  switchRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
   switchText: { color: COLORS.sub, marginRight: 8 },
   button: { borderRadius: 12, paddingVertical: 14, alignItems: "center" },
   buttonText: { color: COLORS.white, fontWeight: "600", fontSize: 16 },
-  footerNote: { textAlign: "center", color: COLORS.sub, marginTop: 12 },
+  saveMsg: {
+    marginTop: 14,
+    textAlign: "center",
+    fontSize: 15,
+    fontWeight: "600",
+    color: COLORS.teal,
+  },
+  footerNote: {
+    textAlign: "center",
+    color: COLORS.sub,
+    marginTop: 12,
+  },
 });

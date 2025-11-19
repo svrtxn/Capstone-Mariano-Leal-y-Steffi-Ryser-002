@@ -2,7 +2,7 @@
 import { BASE_URL } from "../../constants/config";
 import type { GlucoseCreateRequest, Glucose } from "../types/glucose";
 import type { LoginRequest, RegisterRequest, AuthResponse } from "../types/auth";
-import { getCurrentUserId, setCurrentUserId } from "./session";
+import { getCurrentUserId, setCurrentUserId, setCurrentUserName } from "./session";
 
 async function postJSON<T>(path: string, body: any): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -12,7 +12,9 @@ async function postJSON<T>(path: string, body: any): Promise<T> {
   });
 
   let data: any = null;
-  try { data = await res.json(); } catch {}
+  try {
+    data = await res.json();
+  } catch {}
 
   if (!res.ok) {
     const fallback = (data && (data.mensaje || data.error)) || "";
@@ -32,7 +34,9 @@ async function getJSON<T>(path: string): Promise<T> {
   });
 
   let data: any = null;
-  try { data = await res.json(); } catch {}
+  try {
+    data = await res.json();
+  } catch {}
 
   if (!res.ok) {
     const fallback = (data && (data.mensaje || data.error)) || "";
@@ -42,21 +46,17 @@ async function getJSON<T>(path: string): Promise<T> {
   return data as T;
 }
 
-// ——— Helpers ———
-function extractUserIdFromAuth(resp: any): number | null {
-  const cand =
-    resp?.usuario?.usuario_id ??
-    resp?.usuario?.id ??
-    resp?.user?.id ??
-    resp?.usuario_id ??
-    resp?.id ??
-    null;
-  const n = Number(cand);
-  return Number.isNaN(n) ? null : n;
+// Extrae usuario.id de la respuesta del backend
+function extractUserIdFromAuth(resp: AuthResponse): number {
+  const id = resp?.usuario?.id;
+  if (typeof id !== "number") {
+    throw new Error("Respuesta de autenticación inválida: falta usuario.id");
+  }
+  return id;
 }
 
+// ================== API GLUCOSA ==================
 export const glucoseApi = {
-  // Inserta usuario_id desde la sesión y asegura número para valor_glucosa
   async create(payload: GlucoseCreateRequest) {
     const uid = await getCurrentUserId();
     if (!uid) throw new Error("No hay usuario en sesión para registrar glucosa.");
@@ -73,7 +73,6 @@ export const glucoseApi = {
     return postJSON<Glucose>("/niveles-glucosa/ingesta", body);
   },
 
-  // Lista lecturas del usuario
   async listByUser(usuarioId?: number | string) {
     let uid = usuarioId ?? (await getCurrentUserId());
     if (!uid) throw new Error("No hay usuario en sesión.");
@@ -82,16 +81,17 @@ export const glucoseApi = {
 };
 
 export const authApi = {
-  // Guarda usuario_id en sesión automáticamente
   async login(payload: LoginRequest) {
     const body = { correo: payload.email, contrasena: payload.password };
+
+    // 👇 Usa la ruta que ya tenías antes y que cuadra mejor con tu controller
     const resp = await postJSON<AuthResponse>("/usuarios/inicio-sesion", body);
+
     const uid = extractUserIdFromAuth(resp);
     if (uid) await setCurrentUserId(uid);
     return resp;
   },
 
-  // Tras el registro, también guarda el usuario_id (si viene en la respuesta)
   async register(payload: RegisterRequest) {
     const body = {
       correo: payload.email,
@@ -100,14 +100,25 @@ export const authApi = {
       apellido: (payload.apellido ?? "").trim(),
       fechaNacimiento: payload.fecha_nacimiento ?? null,
       telefono: payload.telefono ?? null,
-      rol: "diabetico",
       tieneSensor: payload.tiene_sensor ?? false,
-      tipoDiabetes: payload.tipo_diabetes ?? null,
+      tipoDiabetes:
+      payload.tipo_diabetes === "tipo1"
+        ? "tipo1"
+        : payload.tipo_diabetes === "tipo2"
+        ? "tipo2"
+        : null,
     };
     const resp = await postJSON<AuthResponse>("/usuarios/registro", body);
     const uid = extractUserIdFromAuth(resp);
-    if (uid) await setCurrentUserId(uid);
-    return resp;
+    if (uid) {
+      await setCurrentUserId(uid);
+
+      // 🔥 GUARDAR EL NOMBRE DEL USUARIO
+      const nombre = resp?.usuario?.nombre ?? "";
+      await setCurrentUserName(nombre);
+    }
+
+      return resp;
   },
 
   requestPasswordReset(email: string) {

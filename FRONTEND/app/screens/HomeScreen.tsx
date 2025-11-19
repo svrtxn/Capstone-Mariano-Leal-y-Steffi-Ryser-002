@@ -22,20 +22,23 @@ import {
   clearSession,
   setCurrentUserName,
 } from "../services/session";
+import { BASE_URL } from "../../constants/config";
 
 type GlucoseReading = { time: string; level: number };
 type GlucosePoint = { ts: number; level: number };
+
+type Thresholds = {
+  hipo_min: number;
+  normal_min: number;
+  normal_max: number;
+  hiper_max: number;
+};
 
 const Y_MIN = 0;
 const Y_MAX = 500;
 const HOURS_WINDOW = 12;
 const WINDOW_MS = HOURS_WINDOW * 3600 * 1000;
-
-const getGlucoseColor = (level: number) => {
-  if (level < 70 || level > 180) return "#ef4444";
-  if ((level >= 70 && level < 80) || (level > 140 && level <= 180)) return "#f59e0b";
-  return "#22c55e";
-};
+const CONFIG_BASE = "/config";
 
 // parser robusto para MySQL DATETIME ("YYYY-MM-DD HH:mm:ss")
 function parseTsSafe(v: any): number {
@@ -50,7 +53,13 @@ function parseTsSafe(v: any): number {
 }
 
 // ======= Componente de gráfico relativo (t0 = primera lectura) =======
-function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
+function GlucoseChartInline({
+  readings,
+  thresholds,
+}: {
+  readings: GlucoseReading[];
+  thresholds?: Thresholds | null;
+}) {
   const chartWidth = Math.min(Dimensions.get("window").width - 48, 380);
   const chartHeight = 200;
   const padL = 42;
@@ -79,11 +88,26 @@ function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
         <Text style={s.cardTitleTop}>Ventana: últimas 12h</Text>
         <View style={s.emptyBox}>
           <Text style={s.emptyTitle}>Sin datos</Text>
-          <Text style={s.emptyText}>Registra tu primera medición para iniciar el minuto 0.</Text>
+          <Text style={s.emptyText}>
+            Registra tu primera medición para iniciar el minuto 0.
+          </Text>
         </View>
       </View>
     );
   }
+
+  // ===== UMBRALES PERSONALIZADOS =====
+  const hipo = thresholds?.hipo_min ?? 70;
+  const nMin = thresholds?.normal_min ?? 70;
+  const nMax = thresholds?.normal_max ?? 140;
+  const hiper = thresholds?.hiper_max ?? 180;
+
+  const getGlucoseColor = (level: number) => {
+    if (level < hipo || level > hiper) return "#ef4444"; // rojo fuera de rango
+    if ((level >= hipo && level < nMin) || (level > nMax && level <= hiper))
+      return "#f59e0b"; // amarillo borde
+    return "#22c55e"; // verde dentro del rango normal
+  };
 
   const t0 = points[0].ts;
   const WINDOW_MS_LOCAL = 12 * 3600 * 1000;
@@ -106,38 +130,86 @@ function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
     <View style={s.chartCard}>
       <View style={s.levelRow}>
         <Text style={s.cardTitleTop}>Ventana: últimas 12h</Text>
-        <Text style={[s.levelValue, { color: getGlucoseColor(latest) }]}>{latest}</Text>
+        <Text style={[s.levelValue, { color: getGlucoseColor(latest) }]}>
+          {latest}
+        </Text>
       </View>
 
-      <View style={[s.chartContainer, { width: chartWidth, height: chartHeight }]}>
+      <View
+        style={[s.chartContainer, { width: chartWidth, height: chartHeight }]}
+      >
         <Svg width={chartWidth} height={chartHeight}>
+          {/* Líneas horizontales y labels de eje Y */}
           {ticksY.map((v) => {
             const y = yScale(v);
             return (
               <React.Fragment key={`gy-${v}`}>
-                <Line x1={padL} y1={y} x2={padL + innerW} y2={y} stroke="#E5E7EB" strokeDasharray="4 4" />
-                <SvgText x={padL - 8} y={y + 3} fontSize="10" fill="#6B7280" textAnchor="end">
+                <Line
+                  x1={padL}
+                  y1={y}
+                  x2={padL + innerW}
+                  y2={y}
+                  stroke="#E5E7EB"
+                  strokeDasharray="4 4"
+                />
+                <SvgText
+                  x={padL - 8}
+                  y={y + 3}
+                  fontSize="10"
+                  fill="#6B7280"
+                  textAnchor="end"
+                >
                   {v}
                 </SvgText>
               </React.Fragment>
             );
           })}
 
+          {/* Líneas verticales de tiempo */}
           {tickHours.map((h) => {
             const x = padL + (h / 12) * innerW;
             return (
               <React.Fragment key={`gx-${h}`}>
-                <Line x1={x} y1={0} x2={x} y2={innerH} stroke="#F3F4F6" strokeDasharray="4 4" />
-                <SvgText x={x} y={innerH + 16} fontSize="10" fill="#6B7280" textAnchor="middle">
+                <Line
+                  x1={x}
+                  y1={0}
+                  x2={x}
+                  y2={innerH}
+                  stroke="#F3F4F6"
+                  strokeDasharray="4 4"
+                />
+                <SvgText
+                  x={x}
+                  y={innerH + 16}
+                  fontSize="10"
+                  fill="#6B7280"
+                  textAnchor="middle"
+                >
                   {h}h
                 </SvgText>
               </React.Fragment>
             );
           })}
 
-          <Line x1={padL} y1={0} x2={padL} y2={innerH} stroke="#9CA3AF" strokeWidth={1} />
-          <Line x1={padL} y1={innerH} x2={padL + innerW} y2={innerH} stroke="#9CA3AF" strokeWidth={1} />
+          {/* Ejes principales */}
+          <Line
+            x1={padL}
+            y1={0}
+            x2={padL}
+            y2={innerH}
+            stroke="#9CA3AF"
+            strokeWidth={1}
+          />
+          <Line
+            x1={padL}
+            y1={innerH}
+            x2={padL + innerW}
+            y2={innerH}
+            stroke="#9CA3AF"
+            strokeWidth={1}
+          />
 
+          {/* Segmentos de línea coloreados según umbrales */}
           {points.map((p, i) => {
             if (i === 0) return null;
             const prev = points[i - 1];
@@ -159,10 +231,19 @@ function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
             );
           })}
 
+          {/* Puntos */}
           {points.map((p, i) => {
             const cx = padL + xScale(p.ts);
             const cy = yScale(p.level);
-            return <Circle key={`pt-${i}`} cx={cx} cy={cy} r={3} fill={getGlucoseColor(p.level)} />;
+            return (
+              <Circle
+                key={`pt-${i}`}
+                cx={cx}
+                cy={cy}
+                r={3}
+                fill={getGlucoseColor(p.level)}
+              />
+            );
           })}
         </Svg>
       </View>
@@ -173,7 +254,7 @@ function GlucoseChartInline({ readings }: { readings: GlucoseReading[] }) {
 type Props = {
   onNavigateToIngesta?: () => void;
   onNavigateToHistorial?: () => void;
-  onNavigateToInfo?: () => void; // ← cambiado: antes onNavigateToEstadisticas
+  onNavigateToInfo?: () => void;
   userName?: string;
 };
 
@@ -189,17 +270,29 @@ export default function HomeScreen({
   const params = useLocalSearchParams<{ name?: string }>();
   const [nameFromSession, setNameFromSession] = useState<string | null>(null);
   const displayName = useMemo(() => {
-    const fromParams = typeof params.name === "string" && params.name.trim() ? params.name : "";
+    const fromParams =
+      typeof params.name === "string" && params.name.trim()
+        ? params.name
+        : "";
     return fromParams || nameFromSession || userName || "Usuario";
   }, [params.name, nameFromSession, userName]);
 
   const [rows, setRows] = useState<GlucoseReading[]>([]);
+  const [thresholds, setThresholds] = useState<Thresholds | null>(null);
 
   const handleLogout = () => {
     clearSession().finally(() => router.replace("/"));
   };
 
-  const loadReadings = useCallback(async () => {
+  const handleGoFriends = () => {
+    router.push("/amigos");
+  };
+
+  const handleGoThresholds = () => {
+    router.push("/umbrales");
+  };
+
+  const loadReadingsAndConfig = useCallback(async () => {
     try {
       const uid = await getCurrentUserId();
       if (!uid) {
@@ -207,6 +300,7 @@ export default function HomeScreen({
         return;
       }
 
+      // Nombre: params → sesión → prop
       if (typeof params.name === "string" && params.name.trim()) {
         const nm = params.name.trim();
         await setCurrentUserName(nm);
@@ -216,6 +310,35 @@ export default function HomeScreen({
         if (nm) setNameFromSession(nm);
       }
 
+      // =============================
+      // 1) Cargar configuración/umbrales
+      // =============================
+      try {
+        const configRes = await fetch(`${BASE_URL}${CONFIG_BASE}/${uid}`);
+        if (configRes.ok) {
+          const raw = await configRes.json().catch(() => null);
+          if (raw) {
+            const data = Array.isArray(raw) && raw.length > 0 ? raw[0] : raw;
+            const t: Thresholds = {
+              hipo_min: Number(data.hipo_min ?? 70),
+              normal_min: Number(data.normal_min ?? 70),
+              normal_max: Number(data.normal_max ?? 140),
+              hiper_max: Number(data.hiper_max ?? 180),
+            };
+            setThresholds(t);
+          }
+        } else {
+          // si 404 o error, simplemente se queda en null y usamos defaults
+          setThresholds(null);
+        }
+      } catch (err) {
+        console.warn("Error cargando umbrales:", err);
+        setThresholds(null);
+      }
+
+      // =============================
+      // 2) Cargar lecturas de glucosa
+      // =============================
       const data = await glucoseApi.listByUser();
 
       const soloMias = (Array.isArray(data) ? data : []).filter((r: any) => {
@@ -231,7 +354,10 @@ export default function HomeScreen({
 
       let mapped: GlucoseReading[] = soloMias
         .map((r: any) => ({
-          time: (r.fecha_registro || r.fechaISO || r.fecha || r.created_at) as string,
+          time: (r.fecha_registro ||
+            r.fechaISO ||
+            r.fecha ||
+            r.created_at) as string,
           level: Number(r.valor_glucosa ?? r.valor ?? r.level),
         }))
         .filter((x) => !Number.isNaN(x.level))
@@ -246,8 +372,8 @@ export default function HomeScreen({
 
   useFocusEffect(
     useCallback(() => {
-      loadReadings();
-    }, [loadReadings])
+      loadReadingsAndConfig();
+    }, [loadReadingsAndConfig])
   );
 
   return (
@@ -256,28 +382,55 @@ export default function HomeScreen({
         colors={[COLORS.teal, COLORS.tealLight]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[s.header, { paddingTop: insets.top + 20 }]}
+        style={[s.header, { paddingTop: insets.top + 12 }]}
       >
-        <View style={s.headerInner}>
-          <Image
-            source={require("../../assets/images/glucoguard_logo_blanco.png")}
-            style={s.logo}
-            resizeMode="contain"
-          />
-          <Text style={s.brand}>GlucoGuard</Text>
-          <Text style={s.welcome}>¡Bienvenido, {displayName}!</Text>
+        {/* fila única: icono amigos - bloque central - icono configuración */}
+        <View style={s.headerRow}>
+          <TouchableOpacity
+            onPress={handleGoFriends}
+            activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="people-outline" size={26} color={COLORS.white} />
+          </TouchableOpacity>
 
-          <TouchableOpacity onPress={handleLogout} style={s.logoutBtn} activeOpacity={0.85}>
-            <Ionicons name="log-out-outline" size={18} color={COLORS.white} />
-            <Text style={s.logoutTxt}>Cerrar sesión</Text>
+          <View style={s.headerCenter}>
+            <Image
+              source={require("../../assets/images/glucoguard_logo_blanco.png")}
+              style={s.logo}
+              resizeMode="contain"
+            />
+            <Text style={s.welcome}>¡Bienvenido, {displayName}!</Text>
+
+            <TouchableOpacity
+              onPress={handleLogout}
+              style={s.logoutBtn}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="log-out-outline" size={16} color={COLORS.white} />
+              <Text style={s.logoutTxt}>Cerrar sesión</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            onPress={handleGoThresholds}
+            activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="settings-outline" size={26} color={COLORS.white} />
           </TouchableOpacity>
         </View>
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={s.scrollBody} showsVerticalScrollIndicator={false}>
-        <GlucoseChartInline readings={rows} />
+      <ScrollView
+        contentContainerStyle={s.scrollBody}
+        showsVerticalScrollIndicator={false}
+      >
+        <GlucoseChartInline readings={rows} thresholds={thresholds} />
 
-        <Text style={[s.sectionTitle, { marginTop: 20 }]}>¿Qué deseas hacer?</Text>
+        <Text style={[s.sectionTitle, { marginTop: 20 }]}>
+          ¿Qué deseas hacer?
+        </Text>
 
         <TouchableOpacity activeOpacity={0.85} onPress={onNavigateToIngesta}>
           <LinearGradient
@@ -287,7 +440,11 @@ export default function HomeScreen({
             style={s.menuCard}
           >
             <View style={s.iconContainer}>
-              <Ionicons name="add-circle-outline" size={32} color={COLORS.white} />
+              <Ionicons
+                name="add-circle-outline"
+                size={32}
+                color={COLORS.white}
+              />
             </View>
             <View style={s.menuTextContainer}>
               <Text style={s.menuTitle}>Registrar Glucosa</Text>
@@ -297,34 +454,44 @@ export default function HomeScreen({
           </LinearGradient>
         </TouchableOpacity>
 
-       <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => (onNavigateToHistorial ? onNavigateToHistorial() : router.push("./historial"))}
-        style={s.card}
-      >
-        <View style={s.iconContainerSecondary}>
-          <Ionicons name="list-outline" size={28} color={COLORS.teal} />
-        </View>
-        <View style={s.menuTextContainer}>
-          <Text style={s.cardTitle}>Ver Historial</Text>
-          <Text style={s.cardSubtitle}>Consulta tus registros</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={24} color={COLORS.sub} />
-      </TouchableOpacity>
-
-
-        {/* ←—————— Botón de Información (Glosario) */}
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={() => (onNavigateToInfo ? onNavigateToInfo() : router.push("./info"))}
+          onPress={() =>
+            onNavigateToHistorial
+              ? onNavigateToHistorial()
+              : router.push("./historial")
+          }
           style={s.card}
         >
           <View style={s.iconContainerSecondary}>
-            <Ionicons name="information-circle-outline" size={28} color={COLORS.teal} />
+            <Ionicons name="list-outline" size={28} color={COLORS.teal} />
+          </View>
+          <View style={s.menuTextContainer}>
+            <Text style={s.cardTitle}>Ver Historial</Text>
+            <Text style={s.cardSubtitle}>Consulta tus registros</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={COLORS.sub} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() =>
+            onNavigateToInfo ? onNavigateToInfo() : router.push("./info")
+          }
+          style={s.card}
+        >
+          <View style={s.iconContainerSecondary}>
+            <Ionicons
+              name="information-circle-outline"
+              size={28}
+              color={COLORS.teal}
+            />
           </View>
           <View style={s.menuTextContainer}>
             <Text style={s.cardTitle}>Información</Text>
-            <Text style={s.cardSubtitle}>Glosario y conceptos generales</Text>
+            <Text style={s.cardSubtitle}>
+              Glosario y conceptos generales
+            </Text>
           </View>
           <Ionicons name="chevron-forward" size={24} color={COLORS.sub} />
         </TouchableOpacity>
@@ -337,25 +504,31 @@ const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.bg },
   header: {
     paddingHorizontal: 24,
-    paddingBottom: 32,
+    paddingBottom: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
-  headerInner: { alignItems: "center" },
-  logo: { width: 64, height: 64 },
-  brand: { color: COLORS.white, fontSize: 24, fontWeight: "700", marginTop: 10 },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  headerCenter: {
+    alignItems: "center",
+  },
+  logo: { width: 52, height: 52 },
   welcome: { color: COLORS.white, fontSize: 16, marginTop: 6, opacity: 0.95 },
   logoutBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 12,
+    marginTop: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 999,
     backgroundColor: "rgba(255,255,255,0.20)",
   },
-  logoutTxt: { color: COLORS.white, fontWeight: "600", fontSize: 13 },
+  logoutTxt: { color: COLORS.white, fontWeight: "600", fontSize: 12 },
   scrollBody: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 40 },
   chartCard: {
     backgroundColor: COLORS.white,

@@ -1,3 +1,4 @@
+// src/screens/LoginScreen.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -7,8 +8,6 @@ import {
   StyleSheet,
   Image,
   ScrollView,
-  Platform,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -24,7 +23,10 @@ type Props = {
   onNavigateToRegister?: () => void;
 };
 
-export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }: Props) {
+export default function LoginScreen({
+  onLoginSuccess,
+  onNavigateToRegister,
+}: Props) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -32,6 +34,11 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }: Pr
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const [statusMsg, setStatusMsg] = useState<string>("");
+  const [statusType, setStatusType] = useState<"success" | "error" | null>(
+    null
+  );
 
   const emailValid = email.trim() !== "" && email.includes("@");
   const passwordValid = password.length >= 6;
@@ -41,6 +48,8 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }: Pr
     if (!isValid || loading) return;
     try {
       setLoading(true);
+      setStatusMsg("");
+      setStatusType(null);
 
       const res = await authApi.login({
         email: email.trim().toLowerCase(),
@@ -48,26 +57,35 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }: Pr
       });
 
       const msg = res.mensaje || `¡Bienvenido, ${res.usuario.nombre}!`;
-      Platform.OS === "web" ? window.alert(msg) : Alert.alert("Inicio exitoso", msg);
 
-      // ⬇️ Enviamos id y nombre al padre; el padre navega y pasa ?name=
+      setStatusType("success");
+      setStatusMsg(msg);
+
       onLoginSuccess?.({
         id: res.usuario.id,
         name: res.usuario.nombre,
       });
 
-      // Nota: No navegamos aquí para no perder el param `name`.
-      // La navegación queda en index.tsx
+      // La navegación la hace el padre (index.tsx) para poder pasar ?name=
     } catch (e: any) {
       const human =
         typeof e?.message === "string"
           ? e.message.replace(/^HTTP \d+ [\w ]+ - /, "")
           : "No se pudo iniciar sesión";
-      Platform.OS === "web" ? window.alert(human) : Alert.alert("Error", human);
+
+      setStatusType("error");
+      setStatusMsg(human);
     } finally {
       setLoading(false);
     }
   };
+
+  const statusColorStyle =
+    statusType === "error"
+      ? s.statusError
+      : statusType === "success"
+      ? s.statusSuccess
+      : null;
 
   return (
     <View style={s.screen}>
@@ -133,7 +151,10 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }: Pr
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity onPress={() => router.push("/forgot")} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={() => router.push("/forgot")}
+            activeOpacity={0.7}
+          >
             <Text style={{ color: COLORS.teal, marginTop: 12 }}>
               ¿Olvidaste tu contraseña?
             </Text>
@@ -162,6 +183,11 @@ export default function LoginScreen({ onLoginSuccess, onNavigateToRegister }: Pr
               )}
             </LinearGradient>
           </TouchableOpacity>
+
+          {/* Mensaje inline de estado */}
+          {statusType && !!statusMsg && (
+            <Text style={[s.statusText, statusColorStyle]}>{statusMsg}</Text>
+          )}
 
           <View style={s.divider}>
             <View style={s.dividerLine} />
@@ -235,10 +261,23 @@ const s = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 8,
   },
-  passwordInput: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, color: COLORS.text },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: COLORS.text,
+  },
   eyeIcon: { paddingHorizontal: 12 },
   button: { borderRadius: 12, paddingVertical: 14, alignItems: "center" },
   buttonText: { color: COLORS.white, fontWeight: "600", fontSize: 16 },
+  statusText: {
+    marginTop: 8,
+    fontSize: 13,
+    textAlign: "center",
+  },
+  statusError: { color: "#b91c1c" },
+  statusSuccess: { color: "#15803d" },
   divider: { flexDirection: "row", alignItems: "center", marginVertical: 20 },
   dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.gray200 },
   dividerText: { marginHorizontal: 12, color: COLORS.sub, fontSize: 14 },
