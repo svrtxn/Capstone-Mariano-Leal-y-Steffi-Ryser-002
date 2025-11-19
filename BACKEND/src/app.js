@@ -7,6 +7,9 @@ const rutasGlucosa = require('./routes/glucosaRoutes');
 const rutasUsuarios = require('./routes/usuariosRoutes');
 const rutasConfig = require('./routes/configRoutes');
 const rutasMonitoreo = require('./routes/monitoreoRoutes');
+const rutasContactosApoyo = require("./routes/contactosApoyoRoutes");
+
+
 
 // Crear la app de Express
 const app = express();
@@ -20,6 +23,8 @@ app.use('/niveles-glucosa', rutasGlucosa);
 app.use('/usuarios', rutasUsuarios);
 app.use('/config', rutasConfig);
 app.use('/', rutasMonitoreo);
+app.use("/contactos-apoyo", rutasContactosApoyo);
+
 
 // Ruta de prueba de salud
 app.get('/api/health', (_, res) => res.json({ ok: true }));

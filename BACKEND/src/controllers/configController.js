@@ -1,6 +1,7 @@
 // src/controllers/configController.js
 const ConfigModel = require("../models/configModel");
 
+
 module.exports = {
   async getConfig(req, res) {
     try {

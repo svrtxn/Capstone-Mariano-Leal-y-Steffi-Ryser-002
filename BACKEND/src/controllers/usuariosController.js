@@ -2,11 +2,12 @@
 const UsuarioModel = require('../models/usuarioModel');
 const { admin } = require('../config/firebaseAdmin');
 const bcrypt = require('bcrypt');
-const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 const { LibreLinkClient } = require('libre-link-unofficial-api');
 const { guardarLecturaSensor } = require('../services/glucosaService');
+const contactosModel = require("../models/contactosApoyoModel");
+
 
 // Obtener todos los usuarios
 async function todos(req, res) {
@@ -19,13 +20,12 @@ async function todos(req, res) {
   }
 }
 
-// Registro de usuario
 async function registroUsuario(req, res) {
   try {
     const {
       correo, contrasena, nombre, apellido,
       fechaNacimiento, telefono, rol,
-      tieneSensor, tipoDiabetes
+      tieneSensor, tipoDiabetes, token_invitacion // <--- aquí agregamos token opcional
     } = req.body;
 
     let lecturaLibre = null;
@@ -42,13 +42,11 @@ async function registroUsuario(req, res) {
           lluVersion: '4.16.0'
         });
 
-        await client.login(); // Si falla, lanza excepción
+        await client.login();
         lecturaLibre = await client.read();
         console.log('✅ Cuenta LibreLink validada, lectura inicial:', lecturaLibre);
 
-        // Guardar la contraseña de LibreLink en texto plano SOLO si tiene sensor
         contrasenaLibreLink = contrasena;
-
       } catch (err) {
         console.error('❌ Error validando LibreLink:', err.message);
         return res.status(400).json({
@@ -73,19 +71,34 @@ async function registroUsuario(req, res) {
       fecha_creacion: new Date(),
       tiene_sensor: tieneSensor ? 1 : 0,
       tipo_diabetes: tipoDiabetes || null,
-      // Agregar la columna de LibreLink solo si existe
       ...(tieneSensor && { contrasena_librelink: contrasenaLibreLink })
     });
 
     // --- Crear usuario en Firebase ---
     await admin.auth().createUser({
+      uid: String(usuario_id),
       email: correo,
       password: contrasena,
       displayName: `${nombre} ${apellido}`
     });
 
+    if (token_invitacion) {
+    const invitacion = await contactosModel.buscarPorToken(token_invitacion);
+    if (invitacion) {
+      // Marca la invitación como aceptada y asigna el usuario recién creado
+      await contactosModel.actualizarEstado(token_invitacion, "aceptada", usuario_id);
+    }
+  }
+
+
     // --- Guardar lectura inicial si tiene sensor ---
     if (lecturaLibre) await guardarLecturaSensor(lecturaLibre, usuario_id);
+
+    // --- ACTUALIZAR INVITACIÓN si viene por token ---
+    if (token_invitacion) {
+      await contactosModel.actualizarEstado(token_invitacion, "aceptada", usuario_id);
+      console.log(`✅ Invitación aceptada automáticamente para usuario ${usuario_id}`);
+    }
 
     // --- Generar JWT ---
     const SECRET = process.env.JWT_SECRET || 'clave_secreta';
@@ -108,6 +121,7 @@ async function registroUsuario(req, res) {
     res.status(500).json({ ok: false, mensaje: 'Error al registrar usuario', error: error.message });
   }
 }
+
 
 
 
