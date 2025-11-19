@@ -14,7 +14,7 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS } from "../../constants/colors";
-import { authApi } from "../services/api";
+import { authApi, contactosApi } from "../services/api";
 import { Ionicons } from "@expo/vector-icons";
 
 type Props = {
@@ -61,12 +61,29 @@ export default function LoginScreen({
       setStatusType("success");
       setStatusMsg(msg);
 
+      // Avisamos al padre (index.tsx) como antes
       onLoginSuccess?.({
         id: res.usuario.id,
         name: res.usuario.nombre,
       });
 
-      // La navegación la hace el padre (index.tsx) para poder pasar ?name=
+      // 🔁 Si el padre NO maneja navegación, hacemos un fallback aquí
+      if (!onLoginSuccess) {
+        try {
+          // ¿Este usuario es contacto de apoyo de alguien?
+          const pacientes = await contactosApi.misPacientes();
+          if (pacientes && pacientes.length > 0) {
+            // Tiene pacientes asignados → modo amigo de apoyo
+            router.replace("/soporte"); // ajusta al path donde pongas SoporteHomeScreen
+          } else {
+            // Usuario normal → home estándar
+            router.replace("/home"); // ajusta si tu home es otra ruta
+          }
+        } catch {
+          // Si algo falla, lo tratamos como usuario normal
+          router.replace("/home");
+        }
+      }
     } catch (e: any) {
       const human =
         typeof e?.message === "string"

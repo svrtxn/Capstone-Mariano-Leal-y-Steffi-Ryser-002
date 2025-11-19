@@ -2,7 +2,11 @@
 import { BASE_URL } from "../../constants/config";
 import type { GlucoseCreateRequest, Glucose } from "../types/glucose";
 import type { LoginRequest, RegisterRequest, AuthResponse } from "../types/auth";
-import { getCurrentUserId, setCurrentUserId, setCurrentUserName } from "./session";
+import {
+  getCurrentUserId,
+  setCurrentUserId,
+  setCurrentUserName,
+} from "./session";
 
 async function postJSON<T>(path: string, body: any): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -62,7 +66,9 @@ export const glucoseApi = {
     if (!uid) throw new Error("No hay usuario en sesión para registrar glucosa.");
 
     const valor = Number(payload.valor_glucosa);
-    if (!Number.isFinite(valor)) throw new Error("El valor de glucosa debe ser numérico.");
+    if (!Number.isFinite(valor)) {
+      throw new Error("El valor de glucosa debe ser numérico.");
+    }
 
     const body: GlucoseCreateRequest = {
       ...payload,
@@ -84,7 +90,6 @@ export const authApi = {
   async login(payload: LoginRequest) {
     const body = { correo: payload.email, contrasena: payload.password };
 
-    // 👇 Usa la ruta que ya tenías antes y que cuadra mejor con tu controller
     const resp = await postJSON<AuthResponse>("/usuarios/inicio-sesion", body);
 
     const uid = extractUserIdFromAuth(resp);
@@ -102,11 +107,11 @@ export const authApi = {
       telefono: payload.telefono ?? null,
       tieneSensor: payload.tiene_sensor ?? false,
       tipoDiabetes:
-      payload.tipo_diabetes === "tipo1"
-        ? "tipo1"
-        : payload.tipo_diabetes === "tipo2"
-        ? "tipo2"
-        : null,
+        payload.tipo_diabetes === "tipo1"
+          ? "tipo1"
+          : payload.tipo_diabetes === "tipo2"
+          ? "tipo2"
+          : null,
     };
     const resp = await postJSON<AuthResponse>("/usuarios/registro", body);
     const uid = extractUserIdFromAuth(resp);
@@ -118,7 +123,7 @@ export const authApi = {
       await setCurrentUserName(nombre);
     }
 
-      return resp;
+    return resp;
   },
 
   requestPasswordReset(email: string) {
@@ -132,6 +137,78 @@ export const authApi = {
     return postJSON<{ ok: boolean; mensaje?: string }>(
       "/usuarios/restablecer-contrasena",
       { correo, token, nuevaContrasena }
+    );
+  },
+};
+
+// ================== API CONTACTOS APOYO ==================
+export const contactosApi = {
+  // 1) Enviar invitación (AmigosScreen)
+  async invitarContacto(data: {
+    nombre_contacto: string;
+    email_contacto: string;
+    telefono_contacto?: string;
+    tipo_contacto: string;
+  }) {
+    const usuario_id = await getCurrentUserId();
+    if (!usuario_id) throw new Error("No hay sesión activa.");
+
+    const body = {
+      usuario_id,
+      nombre_contacto: data.nombre_contacto,
+      email_contacto: data.email_contacto,
+      telefono_contacto: data.telefono_contacto ?? "",
+      tipo_contacto: data.tipo_contacto,
+    };
+
+    return postJSON<{
+      msg: string;
+      contacto_id: number;
+      token?: string;
+      previewURL?: string;
+    }>("/contactos-apoyo/invitar", body);
+  },
+
+  // 2) Aceptar invitación desde el link del correo ([token].tsx)
+  async aceptarInvitacion(token: string) {
+    return postJSON<{
+      ok: boolean;
+      invitacion: {
+        token: string;
+        contacto_id: number;
+        nombre_contacto: string;
+        email_contacto: string;
+        paciente_id: number;
+      };
+    }>(`/contactos-apoyo/aceptar/${token}`, {});
+  },
+
+  // 3) Vincular invitación al usuario recién registrado (para usar en Register)
+  async vincularInvitacion(data: { token: string; contacto_usuario_id: number }) {
+    return postJSON<{ msg: string }>("/contactos-apoyo/vincular", data);
+  },
+
+  // 4) Listar pacientes de un contacto (modo "amigo")
+  async misPacientes() {
+    const contacto_usuario_id = await getCurrentUserId();
+    if (!contacto_usuario_id) throw new Error("No hay sesión activa.");
+
+    return postJSON<
+      Array<{
+        contacto_id: number;
+        usuario_id: number; // id del paciente
+        nombre_paciente: string;
+      }>
+    >("/contactos-apoyo/mis-pacientes", { contacto_usuario_id });
+  },
+
+  // 5) Verificar que este contacto puede ver a un paciente concreto
+  async verificarAcceso(paciente_id: number | string) {
+    const contacto_usuario_id = await getCurrentUserId();
+    if (!contacto_usuario_id) throw new Error("No hay sesión activa.");
+
+    return getJSON<{ msg: string }>(
+      `/contactos-apoyo/verificar/${paciente_id}?contacto_usuario_id=${contacto_usuario_id}`
     );
   },
 };

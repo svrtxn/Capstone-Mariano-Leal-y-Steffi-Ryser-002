@@ -8,9 +8,9 @@ export default function RegisterPage() {
     <RegisterScreen
       onRegisterSuccess={(userId: number) => {  
         console.log("Registro exitoso:", userId);
-        router.replace("/home");
+        router.replace("/umbrales");
       }}
       onNavigateToLogin={() => router.back()}
     />
   );
-}
+} 

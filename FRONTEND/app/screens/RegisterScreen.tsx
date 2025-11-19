@@ -36,18 +36,17 @@ export default function RegisterScreen({
   const [telefono, setTelefono] = useState("");
   const [fechaNacimiento, setFechaNacimiento] = useState(""); // YYYY-MM-DD
 
-  // Cuenta
+  // Cuenta "normal"
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // Salud
+  // LibreLink / sensor
   const [tieneSensor, setTieneSensor] = useState(false);
   const [tipoDiabetes, setTipoDiabetes] = useState<"tipo1" | "tipo2" | null>(
     null
   );
 
-  // (Opcional) credenciales LibreLink visuales – no se envían al backend
-  const [libreEmail, setLibreEmail] = useState("");
+  // Contraseña LibreLink (se usa también como password de la app cuando tieneSensor = true)
   const [librePassword, setLibrePassword] = useState("");
   const [showLibrePassword, setShowLibrePassword] = useState(false);
 
@@ -62,11 +61,20 @@ export default function RegisterScreen({
     null
   );
 
-  // Validaciones básicas
+  // === VALIDACIONES ===
   const emailValid = email.trim() !== "" && email.includes("@");
   const nombreValid = nombre.trim().length >= 2;
-  const passwordValid = password.length >= 6;
-  const passwordsMatch = password === confirmPassword && confirmPassword !== "";
+
+  // contraseña efectiva según modo
+  const effectivePassword = tieneSensor ? librePassword : password;
+
+  const passwordValid = effectivePassword.length >= 6;
+
+  // Si NO tiene sensor, pedimos confirmación.
+  // Si SÍ tiene sensor, no hay confirmación (solo validamos largo).
+  const passwordsMatch =
+    tieneSensor || (password === confirmPassword && confirmPassword !== "");
+
   const fechaOk =
     fechaNacimiento.trim() === "" ||
     /^\d{4}-\d{2}-\d{2}$/.test(fechaNacimiento.trim());
@@ -82,17 +90,19 @@ export default function RegisterScreen({
       setStatusMsg("");
       setStatusType(null);
 
+      const finalPassword = effectivePassword; // usa librePassword si tieneSensor = true
+
       // Construimos el payload según RegisterRequest
       const payload: RegisterRequest = {
         nombre: nombre.trim(),
         apellido: (apellido || "").trim(),
         email: email.trim().toLowerCase(),
-        password,
+        password: finalPassword,
         fecha_nacimiento: fechaNacimiento.trim() || undefined,
         telefono: telefono.trim() || undefined,
         tiene_sensor: tieneSensor,
         tipo_diabetes: tipoDiabetes ?? null,
-        // rol lo manejamos en el backend (queda como 'paciente')
+        // credenciales LibreLink quedan solo en front por ahora
       };
 
       const response = await authApi.register(payload);
@@ -151,6 +161,23 @@ export default function RegisterScreen({
           <Text style={s.title}>Crear Cuenta</Text>
           <Text style={s.subtitle}>Completa tus datos para comenzar</Text>
 
+          {/* Toggle LibreLink al inicio */}
+          <View style={s.switchRowTop}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.label}>¿Usas sensor Libre (LibreLink)?</Text>
+              <Text style={s.helperText}>
+                Si lo activas, usaremos este correo y contraseña para conectar
+                con LibreLink.
+              </Text>
+            </View>
+            <Switch
+              value={tieneSensor}
+              onValueChange={setTieneSensor}
+              thumbColor={tieneSensor ? COLORS.teal : "#f4f3f4"}
+              trackColor={{ false: "#d1d5db", true: "#a7f3d0" }}
+            />
+          </View>
+
           {/* Nombre */}
           <Text style={s.label}>Nombre</Text>
           <TextInput
@@ -171,7 +198,7 @@ export default function RegisterScreen({
             style={s.input}
           />
 
-          {/* Email */}
+          {/* Email principal (también LibreLink si tieneSensor = true) */}
           <Text style={s.label}>Correo electrónico</Text>
           <TextInput
             value={email}
@@ -183,6 +210,37 @@ export default function RegisterScreen({
             placeholderTextColor={COLORS.sub}
             style={s.input}
           />
+
+          {/* Si usa sensor, mostramos SOLO la clave LibreLink (que también será la de la app) */}
+          {tieneSensor && (
+            <View style={{ marginTop: 4 }}>
+              <Text style={s.label}>Contraseña LibreLink</Text>
+              <View style={s.passwordRow}>
+                <TextInput
+                  value={librePassword}
+                  onChangeText={setLibrePassword}
+                  secureTextEntry={!showLibrePassword}
+                  placeholder="Contraseña de tu cuenta LibreLink"
+                  placeholderTextColor={COLORS.sub}
+                  style={s.passwordInput}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowLibrePassword(!showLibrePassword)}
+                  style={s.eyeIcon}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={showLibrePassword ? "eye-off-outline" : "eye-outline"}
+                    size={22}
+                    color={COLORS.sub}
+                  />
+                </TouchableOpacity>
+              </View>
+              <Text style={s.helperText}>
+                Usaremos esta misma contraseña para tu cuenta GlucoGuard.
+              </Text>
+            </View>
+          )}
 
           {/* Fecha nacimiento */}
           <Text style={s.label}>Fecha de nacimiento (YYYY-MM-DD)</Text>
@@ -207,103 +265,61 @@ export default function RegisterScreen({
             style={s.input}
           />
 
-          {/* Contraseña */}
-          <Text style={s.label}>Contraseña</Text>
-          <View style={s.passwordRow}>
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              placeholder="Mínimo 6 caracteres"
-              placeholderTextColor={COLORS.sub}
-              style={s.passwordInput}
-            />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              style={s.eyeIcon}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={showPassword ? "eye-off-outline" : "eye-outline"}
-                size={22}
-                color={COLORS.sub}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Confirmar contraseña */}
-          <Text style={s.label}>Confirmar contraseña</Text>
-          <View style={s.passwordRow}>
-            <TextInput
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={!showConfirmPassword}
-              placeholder="Repite tu contraseña"
-              placeholderTextColor={COLORS.sub}
-              style={s.passwordInput}
-            />
-            <TouchableOpacity
-              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              style={s.eyeIcon}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={
-                  showConfirmPassword ? "eye-off-outline" : "eye-outline"
-                }
-                size={22}
-                color={COLORS.sub}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Sensor Libre */}
-          <View style={s.switchRow}>
-            <Text style={s.label}>¿Tiene sensor Libre?</Text>
-            <Switch
-              value={tieneSensor}
-              onValueChange={setTieneSensor}
-              thumbColor={tieneSensor ? COLORS.teal : "#f4f3f4"}
-              trackColor={{ false: "#d1d5db", true: "#a7f3d0" }}
-            />
-          </View>
-
-          {tieneSensor && (
-            <View style={s.libreGroup}>
-              <Text style={s.label}>Correo de LibreLink (opcional)</Text>
-              <TextInput
-                value={libreEmail}
-                onChangeText={setLibreEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                placeholder="Correo asociado a LibreLink"
-                placeholderTextColor={COLORS.sub}
-                style={s.input}
-              />
-
-              <Text style={s.label}>Contraseña LibreLink (opcional)</Text>
+          {/* Si NO usa sensor: contraseña normal + confirmación */}
+          {!tieneSensor && (
+            <>
+              {/* Contraseña */}
+              <Text style={s.label}>Contraseña</Text>
               <View style={s.passwordRow}>
                 <TextInput
-                  value={librePassword}
-                  onChangeText={setLibrePassword}
-                  secureTextEntry={!showLibrePassword}
-                  placeholder="Contraseña LibreLink"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  placeholder="Mínimo 6 caracteres"
                   placeholderTextColor={COLORS.sub}
                   style={s.passwordInput}
                 />
                 <TouchableOpacity
-                  onPress={() => setShowLibrePassword(!showLibrePassword)}
+                  onPress={() => setShowPassword(!showPassword)}
                   style={s.eyeIcon}
                   activeOpacity={0.7}
                 >
                   <Ionicons
-                    name={showLibrePassword ? "eye-off-outline" : "eye-outline"}
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
                     size={22}
                     color={COLORS.sub}
                   />
                 </TouchableOpacity>
               </View>
-            </View>
+
+              {/* Confirmar contraseña */}
+              <Text style={s.label}>Confirmar contraseña</Text>
+              <View style={s.passwordRow}>
+                <TextInput
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                  placeholder="Repite tu contraseña"
+                  placeholderTextColor={COLORS.sub}
+                  style={s.passwordInput}
+                />
+                <TouchableOpacity
+                  onPress={() =>
+                    setShowConfirmPassword(!showConfirmPassword)
+                  }
+                  style={s.eyeIcon}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={
+                      showConfirmPassword ? "eye-off-outline" : "eye-outline"
+                    }
+                    size={22}
+                    color={COLORS.sub}
+                  />
+                </TouchableOpacity>
+              </View>
+            </>
           )}
 
           {/* Tipo de diabetes */}
@@ -419,6 +435,11 @@ const s = StyleSheet.create({
     marginBottom: 4,
     marginTop: 8,
   },
+  helperText: {
+    fontSize: 12,
+    color: COLORS.sub,
+    marginTop: 2,
+  },
   input: {
     borderWidth: 1,
     borderColor: COLORS.gray200,
@@ -446,11 +467,11 @@ const s = StyleSheet.create({
     position: "absolute",
     right: 10,
   },
-  switchRow: {
+  switchRowTop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 12,
+    marginBottom: 8,
   },
   rowChips: {
     flexDirection: "row",
@@ -504,8 +525,5 @@ const s = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     paddingHorizontal: 10,
-  },
-  libreGroup: {
-    marginBottom: 14,
   },
 });

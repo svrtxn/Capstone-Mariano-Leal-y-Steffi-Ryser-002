@@ -208,7 +208,7 @@ export default function UmbralesScreen() {
       >
         <View style={s.headerInner}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.replace("/home")}
             style={s.backButton}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
