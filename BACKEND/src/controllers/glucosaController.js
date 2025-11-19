@@ -88,7 +88,7 @@ exports.registrarGlucosa = async (req, res) => {
         tipo_alerta: resultadoAlerta.tipo,
         valor_disparador: Number(valor_glucosa),
         comparador: resultadoAlerta.comparador,
-        estado: "pendiente",
+        estado: "activa",
         canal: "push",
         prioridad: resultadoAlerta.prioridad
       });

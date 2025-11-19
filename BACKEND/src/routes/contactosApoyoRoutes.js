@@ -24,7 +24,7 @@ router.post("/invitar", controller.invitarContacto);
 // ======================================================
 router.post("/aceptar/:token", controller.aceptarInvitacion);
 router.post("/rechazar/:token", controller.rechazarInvitacion);
-
+router.post("/vincular", controller.vincularInvitacion);
 // ======================================================
 //     D. Verificar acceso
 // ======================================================

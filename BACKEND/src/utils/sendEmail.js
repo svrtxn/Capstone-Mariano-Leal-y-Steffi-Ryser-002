@@ -17,16 +17,15 @@ async function sendEmail(to, subject, html) {
     });
 
     const info = await transporter.sendMail({
-      from: '"GlucoGuard" <no-reply@glucoguard.cl>',
+      from: '"GlucoGuard" soporte@glucoguard.cl',
       to,
       subject,
       html
     });
 
-    console.log("📧 Email enviado:");
-    console.log("Preview URL:", nodemailer.getTestMessageUrl(info));
+    const previewURL = nodemailer.getTestMessageUrl(info);
 
-    return info;
+    return { info, previewURL };
 
   } catch (error) {
     console.error("❌ Error enviando correo:", error);

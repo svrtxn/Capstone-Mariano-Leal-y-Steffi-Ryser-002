@@ -4,7 +4,6 @@ const usuariosModel = require("../models/usuarioModel");
 const sendEmail = require("../utils/sendEmail");
 
 module.exports = {
-
   // =====================================================
   // A. Crear invitación
   // =====================================================
@@ -15,7 +14,7 @@ module.exports = {
         nombre_contacto,
         email_contacto,
         telefono_contacto,
-        tipo_contacto
+        tipo_contacto,
       } = req.body;
 
       const paciente = await usuariosModel.obtenerPorId(usuario_id);
@@ -37,13 +36,13 @@ module.exports = {
         email_contacto,
         telefono_contacto,
         tipo_contacto,
-        token_invitacion: token
+        token_invitacion: token,
       });
 
       // ------------------------
       // Enviar correo Ethereal
       // ------------------------
-      await sendEmail(
+      const { previewURL } = await sendEmail(
         email_contacto,
         "Invitación de Apoyo — GlucoGuard",
         `
@@ -51,11 +50,11 @@ module.exports = {
           <div style="max-width:600px; margin:auto; background:white; border-radius:12px; overflow:hidden; box-shadow:0 4px 15px rgba(0,0,0,0.1);">
 
             <div style="background:#3DB7C4; padding:25px; text-align:center;">
-            <img src="https://i.postimg.cc/jS9NsK9D/glucoguard-text-white.png" alt="GlucoGuard" style="width:120px; margin-bottom:10px;" />
-            <h1 style="color:white; margin:0; font-size:22px; font-weight:600;">
-              Invitación para ser Contacto de Apoyo
-            </h1>
-          </div>
+              <img src="https://i.postimg.cc/jS9NsK9D/glucoguard-text-white.png" alt="GlucoGuard" style="width:120px; margin-bottom:10px;" />
+              <h1 style="color:white; margin:0; font-size:22px; font-weight:600;">
+                Invitación para ser Contacto de Apoyo
+              </h1>
+            </div>
 
             <div style="padding:30px; font-size:15px; color:#333; line-height:1.6;">
               <p>Hola <b>${nombre_contacto}</b>,</p>
@@ -95,7 +94,13 @@ module.exports = {
         `
       );
 
-      res.json({ msg: "Invitación enviada", contacto_id, token });
+      // 🔥 Ahora también mandamos previewURL al front
+      res.json({
+        msg: "Invitación enviada",
+        contacto_id,
+        token,
+        previewURL,
+      });
     } catch (err) {
       console.log(err);
       res.status(500).json({ msg: "Error interno" });
@@ -105,29 +110,36 @@ module.exports = {
   // =====================================================
   // B. Aceptar invitación (token por params)
   // =====================================================
-    async aceptarInvitacion(req, res) {
-    try {
-        const { token } = req.params;
+  async aceptarInvitacion(req, res) {
+  try {
+    const { token } = req.params;
+    console.log("TOKEN QUE LLEGA:", token);
 
-        const invitacion = await contactosModel.buscarPorToken(token);
-        if (!invitacion) {
-        return res.status(404).json({ error: "Token inválido o expirado" });
-        }
+    const invitacion = await contactosModel.buscarPorToken(token);
+    console.log("INVITACION ENCONTRADA:", invitacion);
 
-        // Solo marca como aceptada, sin asignar usuario aún
-        await contactosModel.actualizarEstado(token, "aceptada");
-
-        return res.json({
-        mensaje: "Invitación aceptada correctamente. Ahora puedes registrarte o iniciar sesión.",
-        });
-
-    } catch (err) {
-        console.error("Error al aceptar invitación:", err);
-        return res.status(500).json({ error: "Error interno" });
+    if (!invitacion) {
+      return res.status(404).json({ error: "Token inválido o expirado" });
     }
-    },
 
+    // OJO: todavía NO cambiamos estado acá, lo haremos al vincular al usuario
+    // await contactosModel.actualizarEstado(token, "aceptada");
 
+    return res.json({
+      ok: true,
+      invitacion: {
+        token,
+        contacto_id: invitacion.id,           // ajusta al nombre real de PK
+        nombre_contacto: invitacion.nombre_contacto,
+        email_contacto: invitacion.email_contacto,
+        paciente_id: invitacion.usuario_id,   // el paciente que invitó
+      },
+    });
+  } catch (err) {
+    console.error("Error al aceptar invitación:", err);
+    return res.status(500).json({ error: "Error interno" });
+  }
+},
 
   // =====================================================
   // C. Rechazar invitación
@@ -144,7 +156,36 @@ module.exports = {
       res.status(500).json({ msg: "Error interno" });
     }
   },
+    // =====================================================
+  // C. VINCULAR CUENTAS
+  // =====================================================
+  async vincularInvitacion(req, res) {
+    try {
+      const { token, contacto_usuario_id } = req.body;
 
+      if (!token || !contacto_usuario_id) {
+        return res
+          .status(400)
+          .json({ msg: "Faltan datos: token o contacto_usuario_id" });
+      }
+
+      const resultado = await contactosModel.aceptarInvitacion(
+        token,
+        contacto_usuario_id
+      );
+
+      if (resultado.affectedRows === 0) {
+        return res
+          .status(404)
+          .json({ msg: "Invitación no encontrada o ya utilizada" });
+      }
+
+      return res.json({ msg: "Invitación aceptada y vinculada correctamente" });
+    } catch (err) {
+      console.error("Error al vincular invitación:", err);
+      return res.status(500).json({ msg: "Error interno" });
+    }
+  },
   // =====================================================
   // D. Verificar acceso
   // =====================================================
@@ -160,7 +201,7 @@ module.exports = {
 
       if (!acceso) {
         return res.status(403).json({
-          msg: "No tienes permiso para ver la glucosa de este paciente"
+          msg: "No tienes permiso para ver la glucosa de este paciente",
         });
       }
 
@@ -207,5 +248,5 @@ module.exports = {
       console.log(err);
       res.status(500).json({ msg: "Error interno" });
     }
-  }
+  },
 };

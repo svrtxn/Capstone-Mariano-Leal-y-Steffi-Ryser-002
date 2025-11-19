@@ -1,4 +1,5 @@
 // src/controllers/usuariosController.js
+const crypto = require('crypto');
 const UsuarioModel = require('../models/usuarioModel');
 const { admin } = require('../config/firebaseAdmin');
 const bcrypt = require('bcrypt');

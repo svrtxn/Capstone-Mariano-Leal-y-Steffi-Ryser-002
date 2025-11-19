@@ -12,7 +12,7 @@ module.exports = {
     valor_disparador,
     comparador,
     prioridad,
-    estado = 'pendiente',
+    estado = 'activa',
     canal = 'push',
     activo_desde = null,
     activo_hasta = null
