@@ -1,6 +1,8 @@
+##################################################
+# USUARIOS
+##################################################
 
 ### Registro de Usuario con sensor
-
 POST http://localhost:8080/usuarios/registro
 Content-Type: application/json
 
@@ -16,14 +18,25 @@ Content-Type: application/json
   "tipo_diabetes": "1"
 }
 
+###
+
 ### Registro de Usuario sin sensor
 POST http://localhost:8080/usuarios/registro
 Content-Type: application/json
 
 {
-POST http://localhost:8080/usuarios/registro
+  "tieneSensor": false,
+  "correo": "usuario.sin.sensor@gmail.com",
+  "contrasena": "Comelonmas1.",
+  "nombre": "Usuario",
+  "apellido": "Normal",
+  "fechaNacimiento": "1990-01-01",
+  "telefono": "123456789",
+  "rol": "diabetico",
   "tipo_diabetes": "1"
 }
+
+###
 
 ### Inicio de Sesión
 POST http://localhost:8080/usuarios/inicio-sesion
@@ -34,14 +47,7 @@ Content-Type: application/json
   "contrasena": "Comelonmas1."
 }
 
-### Inicio de Sesión 2
-POST http://localhost:8080/usuarios/inicio-sesion
-Content-Type: application/json
-
-{
-  "correo": "steffi.ryser.t@mail.com",
-  "contrasena": "Comelonmas1."
-}
+###
 
 ### Solicitar Restablecer Contraseña
 POST http://localhost:8080/usuarios/solicitar-restablecer
@@ -51,17 +57,25 @@ Content-Type: application/json
   "correo": "itsuki.maki@gmail.com"
 }
 
+###
+
 ### Restablecer Contraseña
 POST http://localhost:8080/usuarios/restablecer-contrasena
 Content-Type: application/json
 
 {
-  "correo": "steffi.ryser.t@mail.com",
-  "token": "3472637b2da4543169cf326cc4c2294a0998adeef3564e5c86926568489ab65e",
+  "correo": "steffi.ryser.t@gmail.com",
+  "token": "TOKEN_RESTABLECER",
   "nuevaContrasena": "NuevaContraseña123!"
 }
 
-### Configuración de Usuario
+###
+
+##################################################
+# CONFIGURACIÓN DE USUARIO
+##################################################
+
+### Configurar usuario
 POST http://localhost:8080/config/12
 Content-Type: application/json
 
@@ -77,9 +91,16 @@ Content-Type: application/json
 }
 
 ###
-GET http://localhost:8080/config/12
 
-### Niveles de Glucosa
+### Obtener configuración
+GET http://localhost:8080/config/12
+###
+
+##################################################
+# NIVELES DE GLUCOSA
+##################################################
+
+### Registrar nivel de glucosa
 POST http://localhost:8080/niveles-glucosa/ingesta
 Content-Type: application/json
 
@@ -92,7 +113,9 @@ Content-Type: application/json
   "notas": "prueba manual"
 }
 
-### Iniciar Monitoreo REAL de un Usuario
+###
+
+### Iniciar monitoreo REAL
 POST http://localhost:8080/niveles-glucosa/monitoreo/iniciar
 Content-Type: application/json
 
@@ -101,7 +124,9 @@ Content-Type: application/json
   "intervalo": 300000
 }
 
-### Detener Monitoreo REAL de un Usuario
+###
+
+### Detener monitoreo REAL
 POST http://localhost:8080/niveles-glucosa/monitoreo/detener
 Content-Type: application/json
 
@@ -110,15 +135,16 @@ Content-Type: application/json
 }
 
 ###
-### Obtener Última Lectura de un Usuario
+
+### Obtener última lectura
 GET http://localhost:8080/niveles-glucosa/monitoreo/ultima-lectura/
+###
 
-
+##################################################
 # CONTACTOS DE APOYO
+##################################################
 
-##############################################
-# 1. Crear invitación
-##############################################
+### 1. Crear invitación
 POST http://localhost:8080/contactos-apoyo/invitar
 Content-Type: application/json
 
@@ -130,27 +156,19 @@ Content-Type: application/json
   "tipo_contacto": "familiar"
 }
 
-### 
-# 2. Aceptar invitación (para marcarla como aceptada)
-#    Nota: usar el token devuelto en la creación de invitación
-##############################################
-POST http://localhost:8080/contactos-apoyo/aceptar/e6ef5c9c-0a69-4354-8e26-1502d9ef402c
+###
+
+### 2. Redirección GET desde correo (simula clic del usuario)
+GET http://localhost:8080/contactos-apoyo/aceptar/TOKEN
+###
+
+### 3. Aceptar invitación (marca como aceptada)
+POST http://localhost:8080/contactos-apoyo/aceptar/TOKEN
 Content-Type: application/json
 
-
 ###
 
-##############################################
-# 3. Redirección GET desde correo (simula clic del usuario)
-##############################################
-GET http://localhost:8080/contactos-apoyo/aceptar/e6ef5c9c-0a69-4354-8e26-1502d9ef402c
-###
-
-
-##############################################
-# 8. Registro de usuario desde invitación
-#    Nota: agregar token_invitacion para vincularlo
-##############################################
+### 4. Registro de usuario desde invitación
 POST http://localhost:8080/usuarios/registro
 Content-Type: application/json
 
@@ -158,27 +176,21 @@ Content-Type: application/json
   "tieneSensor": false,
   "correo": "juana.gomez@gmail.com",
   "contrasena": "Comelonmas1.",
-  "nombre": "Jauna",
+  "nombre": "Juana",
   "apellido": "Gomez",
   "fechaNacimiento": "2004-05-25",
   "telefono": "955523789",
   "rol": "diabetico",
-  "token_invitacion": "e6ef5c9c-0a69-4354-8e26-1502d9ef402c"
+  "token_invitacion": "TOKEN"
 }
-
-
-
-
-##############################################
-# 4. Verificar si un contacto tiene permiso
-##############################################
-GET http://localhost:8080/contactos-apoyo/verificar/10?contacto_usuario_id=16
 
 ###
 
-##############################################
-# 5. Habilitar o deshabilitar un contacto
-##############################################
+### 5. Verificar si un contacto tiene permiso
+GET http://localhost:8080/contactos-apoyo/verificar/10?contacto_usuario_id=16
+###
+
+### 6. Habilitar o deshabilitar un contacto
 PATCH http://localhost:8080/contactos-apoyo/16/habilitar
 Content-Type: application/json
 
@@ -188,9 +200,7 @@ Content-Type: application/json
 
 ###
 
-##############################################
-# 6. Cambiar prioridad del contacto
-##############################################
+### 7. Cambiar prioridad del contacto
 PATCH http://localhost:8080/contactos-apoyo/16/prioridad
 Content-Type: application/json
 
@@ -200,15 +210,10 @@ Content-Type: application/json
 
 ###
 
-##############################################
-# 7. Obtener mis pacientes (para contacto)
-##############################################
+### 8. Obtener mis pacientes
 POST http://localhost:8080/contactos-apoyo/mis-pacientes
 Content-Type: application/json
 
 {
   "contacto_usuario_id": 16
 }
-
-###
-
