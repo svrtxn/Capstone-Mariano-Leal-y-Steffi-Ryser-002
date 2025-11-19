@@ -18,7 +18,7 @@ import { authApi, contactosApi } from "../services/api";
 import { Ionicons } from "@expo/vector-icons";
 
 type Props = {
-  // ⬇️ ahora mandamos id y name al padre
+  // Mandamos id y nombre al padre (solo informativo)
   onLoginSuccess?: (info: { id: number; name: string }) => void;
   onNavigateToRegister?: () => void;
 };
@@ -46,6 +46,7 @@ export default function LoginScreen({
 
   const handleLogin = async () => {
     if (!isValid || loading) return;
+
     try {
       setLoading(true);
       setStatusMsg("");
@@ -61,28 +62,28 @@ export default function LoginScreen({
       setStatusType("success");
       setStatusMsg(msg);
 
-      // Avisamos al padre (index.tsx) como antes
+      // Informamos al padre, pero la navegación la manejamos aquí
       onLoginSuccess?.({
         id: res.usuario.id,
         name: res.usuario.nombre,
       });
 
-      // 🔁 Si el padre NO maneja navegación, hacemos un fallback aquí
-      if (!onLoginSuccess) {
-        try {
-          // ¿Este usuario es contacto de apoyo de alguien?
-          const pacientes = await contactosApi.misPacientes();
-          if (pacientes && pacientes.length > 0) {
-            // Tiene pacientes asignados → modo amigo de apoyo
-            router.replace("/soporte"); // ajusta al path donde pongas SoporteHomeScreen
-          } else {
-            // Usuario normal → home estándar
-            router.replace("/home"); // ajusta si tu home es otra ruta
-          }
-        } catch {
-          // Si algo falla, lo tratamos como usuario normal
+      // 🔥 SIEMPRE decidimos el flujo aquí dentro
+      try {
+        const pacientes = await contactosApi.misPacientes();
+        console.log("misPacientes() =>", pacientes?.length);
+
+        if (Array.isArray(pacientes) && pacientes.length > 0) {
+          // Tiene pacientes asignados → es contacto de apoyo
+          router.replace("/soporte");
+        } else {
+          // Usuario normal → home estándar
           router.replace("/home");
         }
+      } catch (err) {
+        console.warn("Error revisando misPacientes:", err);
+        // Si falla la API, lo tratamos como usuario normal
+        router.replace("/home");
       }
     } catch (e: any) {
       const human =
@@ -168,6 +169,7 @@ export default function LoginScreen({
             </TouchableOpacity>
           </View>
 
+          {/* Olvidé mi contraseña → pantalla de recuperación */}
           <TouchableOpacity
             onPress={() => router.push("/forgot")}
             activeOpacity={0.7}
@@ -201,7 +203,6 @@ export default function LoginScreen({
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Mensaje inline de estado */}
           {statusType && !!statusMsg && (
             <Text style={[s.statusText, statusColorStyle]}>{statusMsg}</Text>
           )}
