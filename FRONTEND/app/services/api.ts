@@ -212,3 +212,31 @@ export const contactosApi = {
     );
   },
 };
+// ================== API MONITOREO SENSOR ==================
+// ================== API MONITOREO SENSOR ==================
+export const monitoreoApi = {
+  async iniciar() {
+    const uid = await getCurrentUserId();
+    if (!uid) throw new Error("No hay usuario en sesión.");
+
+    // 👇 Solo pedimos UNA lectura al backend. Nada de intervalos aquí.
+    return postJSON<{ mensaje?: string }>(
+      "/niveles-glucosa/monitoreo/iniciar",
+      { usuarioId: uid }
+    );
+  },
+
+  async detener() {
+    const uid = await getCurrentUserId();
+    if (!uid) return; // si no hay sesión, no hacemos nada
+
+    try {
+      return await postJSON<{ mensaje?: string }>(
+        "/niveles-glucosa/monitoreo/detener",
+        { usuarioId: uid }
+      );
+    } catch (e) {
+      console.warn("No se pudo detener monitoreo:", e);
+    }
+  },
+};

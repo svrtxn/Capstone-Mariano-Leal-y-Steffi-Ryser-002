@@ -11,6 +11,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { contactosApi, authApi } from "../services/api";
 import { COLORS } from "../../constants/colors";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function AceptarInvitacionScreen() {
   const { token } = useLocalSearchParams<{ token: string }>();
@@ -28,6 +29,10 @@ export default function AceptarInvitacionScreen() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
+  // 👁️ estados para mostrar/ocultar contraseñas
+  const [showPass1, setShowPass1] = useState(false);
+  const [showPass2, setShowPass2] = useState(false);
+
   // 1) VALIDAR TOKEN CUANDO CARGA LA PÁGINA
   useEffect(() => {
     if (!token) return;
@@ -40,7 +45,6 @@ export default function AceptarInvitacionScreen() {
         setTokenValido(true);
         setNombre(resp.invitacion?.nombre_contacto || "");
         setEmail(resp.invitacion?.email_contacto || "");
-
       } catch {
         setError("Invitación no válida o expirada.");
       } finally {
@@ -85,7 +89,6 @@ export default function AceptarInvitacionScreen() {
 
       // REDIRIGIR
       router.replace("/");
-
     } catch (e: any) {
       setFormError(e.message || "No se pudo registrar");
     } finally {
@@ -119,32 +122,68 @@ export default function AceptarInvitacionScreen() {
 
       <TextInput
         placeholder="Nombre"
+        placeholderTextColor="#777"
         value={nombre}
         onChangeText={setNombre}
         style={s.input}
       />
       <TextInput
         placeholder="Correo"
+        placeholderTextColor="#777"
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
         keyboardType="email-address"
         style={s.input}
       />
-      <TextInput
-        placeholder="Contraseña"
-        secureTextEntry
-        value={pass1}
-        onChangeText={setPass1}
-        style={s.input}
-      />
-      <TextInput
-        placeholder="Repetir contraseña"
-        secureTextEntry
-        value={pass2}
-        onChangeText={setPass2}
-        style={s.input}
-      />
+
+      {/* Contraseña con botón de ojo */}
+      <View style={s.passwordRow}>
+        <TextInput
+          placeholder="Contraseña"
+          placeholderTextColor="#777"
+          secureTextEntry={!showPass1}
+          value={pass1}
+          onChangeText={setPass1}
+          style={s.passwordInput}
+          autoCapitalize="none"
+        />
+        <TouchableOpacity
+          onPress={() => setShowPass1((prev) => !prev)}
+          style={s.eyeIcon}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={showPass1 ? "eye-off-outline" : "eye-outline"}
+            size={22}
+            color="#aaa"
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* Repetir contraseña con botón de ojo */}
+      <View style={s.passwordRow}>
+        <TextInput
+          placeholder="Repetir contraseña"
+          placeholderTextColor="#777"
+          secureTextEntry={!showPass2}
+          value={pass2}
+          onChangeText={setPass2}
+          style={s.passwordInput}
+          autoCapitalize="none"
+        />
+        <TouchableOpacity
+          onPress={() => setShowPass2((prev) => !prev)}
+          style={s.eyeIcon}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={showPass2 ? "eye-off-outline" : "eye-outline"}
+            size={22}
+            color="#aaa"
+          />
+        </TouchableOpacity>
+      </View>
 
       {formError ? <Text style={s.errorText}>{formError}</Text> : null}
 
@@ -189,6 +228,26 @@ const s = StyleSheet.create({
     padding: 10,
     color: "#fff",
     marginTop: 10,
+  },
+  // fila de contraseña + icono
+  passwordRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#111",
+    borderColor: "#444",
+    borderWidth: 1,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 10,
+    color: "#fff",
+    fontSize: 16,
+  },
+  eyeIcon: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   btn: {
     backgroundColor: COLORS.teal,

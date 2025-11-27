@@ -1,9 +1,9 @@
 // server.js
 const app = require('./app');
-const config = require('./config/config');
 
-const PORT = Number(config.app.port || 3030);
+// Usa SIEMPRE el puerto 3030 mientras tanto
+const PORT = 3030;
 
-app.listen(PORT, () => {
-  console.log(`API escuchando en http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`API escuchando en: http://192.168.1.123:${PORT}`);
 });

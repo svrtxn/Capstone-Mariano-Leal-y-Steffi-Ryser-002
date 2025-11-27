@@ -1,3 +1,4 @@
+// services/monitoreoGlucosaService.js
 const { LibreLinkClient } = require('libre-link-unofficial-api');
 const UsuarioModel = require('../models/usuarioModel');
 const GlucosaModel = require('../models/glucosaModel');
@@ -5,8 +6,6 @@ const ConfigModel = require('../models/configModel');
 const AlertasModel = require('../models/alertasModel');
 const clasificarAlerta = require('../utils/clasificarAlerta');
 const firebaseDB = require('../config/firebaseAdmin');
-
-const monitoreosActivos = new Map();
 
 /**
  * Guarda la lectura del sensor en MySQL, genera alerta y guarda en Firebase.
@@ -43,7 +42,7 @@ async function guardarLecturaSensor(lectura, usuarioId) {
 
     if (configUsuario && configUsuario.notificaciones === 1) {
       resultadoAlerta = clasificarAlerta(valor_glucosa, configUsuario);
-      console.log(resultadoAlerta.tipo);
+      console.log("Tipo alerta:", resultadoAlerta.tipo);
 
       if (resultadoAlerta.tipo !== "verde") {
         await AlertasModel.crear({
@@ -51,7 +50,7 @@ async function guardarLecturaSensor(lectura, usuarioId) {
           tipo_alerta: resultadoAlerta.tipo,
           valor_disparador: valor_glucosa,
           comparador: resultadoAlerta.comparador,
-          estado: "pendiente",
+          estado: "activa",
           canal: "push",
           prioridad: resultadoAlerta.prioridad
         });
@@ -66,7 +65,6 @@ async function guardarLecturaSensor(lectura, usuarioId) {
 
     console.log("🚀 ALERTA GENERADA (sensor):", resultadoAlerta);
 
-    // Esta función NO responde HTTP → retornamos datos al que llama
     return {
       ...row,
       alerta: resultadoAlerta.tipo
@@ -74,72 +72,97 @@ async function guardarLecturaSensor(lectura, usuarioId) {
 
   } catch (error) {
     console.error("❌ ERROR EN guardarLecturaSensor:", error);
-    throw error; // Se maneja en iniciarMonitoreoUsuario
+    throw error;
   }
 }
 
-
 /**
- * Inicia el monitoreo del usuario.
+ * 🔁 Hace UNA sola lectura desde LibreLink para un usuario
+ * y la guarda en MySQL + Firebase usando guardarLecturaSensor.
  */
-async function iniciarMonitoreoUsuario(usuarioId, intervalo = 5 * 60 * 1000) {
+async function leerYGuardarUnaVez(usuarioId) {
+  console.log(`⚙️ leerYGuardarUnaVez → usuarioId=${usuarioId}`);
+
+  const usuario = await UsuarioModel.obtenerCredenciales(usuarioId);
+  if (!usuario) {
+    console.error(`Usuario con ID ${usuarioId} no encontrado`);
+    throw new Error('Usuario no encontrado');
+  }
+
+  if (usuario.tiene_sensor !== 1 || !usuario.contrasena_librelink) {
+    console.log(
+      `Usuario ${usuarioId} no tiene sensor activo o no tiene contraseña LibreLink.`
+    );
+    throw new Error('Usuario no tiene sensor LibreLink configurado');
+  }
+
   try {
-    const usuario = await UsuarioModel.obtenerCredenciales(usuarioId);
-    if (!usuario) return console.error(`Usuario con ID ${usuarioId} no encontrado`);
+    const client = new LibreLinkClient({
+      email: usuario.email || usuario.correo,
+      password: usuario.contrasena_librelink,
+      region: 'US',
+      language: 'es-ES',
+      lluVersion: '4.16.0'
+    });
 
-    if (usuario.tiene_sensor !== 1 || !usuario.contrasena_librelink) {
-      return console.log(`Usuario ${usuarioId} no tiene sensor o contraseña LibreLink.`);
+    await client.login();
+    const lecturaLibre = await client.read();
+
+    if (!lecturaLibre) {
+      console.log(`⚠️ No se obtuvo lectura para usuario ${usuarioId}`);
+      throw new Error('No se obtuvo lectura del sensor');
     }
 
-    const obtenerLectura = async () => {
-    try {
-      const client = new LibreLinkClient({
-        email: usuario.email,
-        password: usuario.contrasena_librelink,
-        region: 'US',
-        language: 'es-ES',
-        lluVersion: '4.16.0'
-      });
+    const resultado = await guardarLecturaSensor(lecturaLibre, usuarioId);
+    console.log(
+      `✅ Lectura registrada (leerYGuardarUnaVez) para usuario ${usuarioId}:`,
+      resultado.valor_glucosa,
+      'mg/dL'
+    );
 
-      await client.login();
-      const lecturaLibre = await client.read();
-
-      if (lecturaLibre) {
-        // Guardar lectura y generar alerta dentro de esta función
-        const resultado = await guardarLecturaSensor(lecturaLibre, usuarioId);
-        console.log(`✅ Lectura registrada para usuario ${usuarioId}:`, resultado);
-      }
-    } catch (err) {
-      console.error(`❌ Error al obtener lectura del usuario ${usuarioId}:`, err.message);
-    }
-};
-
-
-    await obtenerLectura();
-    const monitor = setInterval(obtenerLectura, intervalo);
-    monitoreosActivos.set(usuarioId, monitor);
-
-    console.log(`▶️ Monitoreo iniciado para usuario ${usuarioId} cada ${intervalo / 1000} segundos`);
-
-    return () => detenerMonitoreoUsuario(usuarioId);
-
-  } catch (error) {
-    console.error(`Error iniciando monitoreo para usuario ${usuarioId}:`, error.message);
+    return resultado;
+  } catch (err) {
+    console.error(
+      `❌ Error al obtener lectura del usuario ${usuarioId}:`,
+      err.message
+    );
+    throw err;
   }
 }
 
 /**
- * Detiene el monitoreo del usuario.
+ * 🔥 "Iniciar monitoreo" = hacer UNA lectura como la de login.
+ * El intervalo lo manejamos en el FRONT, no en el backend.
+ */
+async function iniciarMonitoreoUsuario(usuarioId, intervaloMs) {
+  try {
+    const lectura = await leerYGuardarUnaVez(usuarioId);
+    return {
+      ok: true,
+      mensaje: 'Lectura de sensor realizada',
+      lectura,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      mensaje: error.message || 'No se pudo leer el sensor',
+    };
+  }
+}
+
+/**
+ * Detener monitoreo:
+ * Como ya no usamos setInterval en el backend, esto es básicamente informativo.
  */
 function detenerMonitoreoUsuario(usuarioId) {
-  if (monitoreosActivos.has(usuarioId)) {
-    clearInterval(monitoreosActivos.get(usuarioId));
-    monitoreosActivos.delete(usuarioId);
-    console.log(`🛑 Monitoreo detenido para usuario ${usuarioId}`);
-    return { mensaje: "Monitoreo detenido", usuarioId };
-  } else {
-    return { mensaje: "No hay monitoreo activo para este usuario", usuarioId };
-  }
+  console.log(
+    `ℹ️ detenerMonitoreoUsuario llamado, pero no hay intervalos en backend. usuarioId=${usuarioId}`
+  );
+  return {
+    ok: true,
+    mensaje: 'No hay monitoreo programado en el servidor',
+    usuarioId,
+  };
 }
 
 /**
@@ -157,5 +180,6 @@ module.exports = {
   iniciarMonitoreoUsuario,
   detenerMonitoreoUsuario,
   obtenerUltimaLectura,
-  guardarLecturaSensor
+  guardarLecturaSensor,
+  leerYGuardarUnaVez,
 };

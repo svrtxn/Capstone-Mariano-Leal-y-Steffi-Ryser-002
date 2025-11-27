@@ -84,22 +84,18 @@ async function registroUsuario(req, res) {
     });
 
     if (token_invitacion) {
-    const invitacion = await contactosModel.buscarPorToken(token_invitacion);
-    if (invitacion) {
-      // Marca la invitación como aceptada y asigna el usuario recién creado
-      await contactosModel.actualizarEstado(token_invitacion, "aceptada", usuario_id);
+      const invitacion = await contactosModel.buscarPorToken(token_invitacion);
+      if (invitacion) {
+        await contactosModel.actualizarEstado(token_invitacion, "aceptada", usuario_id);
+      }
     }
-  }
 
-
+    // ❌ ANTES: aquí se guardaba también en MySQL y Firebase
     // --- Guardar lectura inicial si tiene sensor ---
-    if (lecturaLibre) await guardarLecturaSensor(lecturaLibre, usuario_id);
-
-    // --- ACTUALIZAR INVITACIÓN si viene por token ---
-    if (token_invitacion) {
-      await contactosModel.actualizarEstado(token_invitacion, "aceptada", usuario_id);
-      console.log(`✅ Invitación aceptada automáticamente para usuario ${usuario_id}`);
-    }
+    // if (lecturaLibre) await guardarLecturaSensor(lecturaLibre, usuario_id);
+    //
+    // ✅ AHORA: solo la usamos para devolverla al front si quieres mostrarla,
+    // pero dejamos que el monitoreo (Home) sea el que inserta en la BD.
 
     // --- Generar JWT ---
     const SECRET = process.env.JWT_SECRET || 'clave_secreta';
@@ -114,7 +110,7 @@ async function registroUsuario(req, res) {
         fecha_registro: new Date().toISOString(),
         tieneSensor: !!tieneSensor
       },
-      lecturaLibre
+      lecturaLibre   // la devuelves por si el front la quiere mostrar
     });
 
   } catch (error) {
@@ -122,6 +118,7 @@ async function registroUsuario(req, res) {
     res.status(500).json({ ok: false, mensaje: 'Error al registrar usuario', error: error.message });
   }
 }
+
 
 
 

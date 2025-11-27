@@ -10,6 +10,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Switch,
+  Modal,              // 👈 NUEVO
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -61,6 +62,10 @@ export default function RegisterScreen({
     null
   );
 
+  // Check de términos y condiciones
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [termsModalVisible, setTermsModalVisible] = useState(false); // 👈 NUEVO
+
   // === VALIDACIONES ===
   const emailValid = email.trim() !== "" && email.includes("@");
   const nombreValid = nombre.trim().length >= 2;
@@ -79,8 +84,14 @@ export default function RegisterScreen({
     fechaNacimiento.trim() === "" ||
     /^\d{4}-\d{2}-\d{2}$/.test(fechaNacimiento.trim());
 
+  // Validación general (ahora incluye acceptedTerms)
   const isValid =
-    nombreValid && emailValid && passwordValid && passwordsMatch && fechaOk;
+    nombreValid &&
+    emailValid &&
+    passwordValid &&
+    passwordsMatch &&
+    fechaOk &&
+    acceptedTerms;
 
   const handleRegister = async () => {
     if (!isValid || loading) return;
@@ -230,7 +241,9 @@ export default function RegisterScreen({
                   activeOpacity={0.7}
                 >
                   <Ionicons
-                    name={showLibrePassword ? "eye-off-outline" : "eye-outline"}
+                    name={
+                      showLibrePassword ? "eye-off-outline" : "eye-outline"
+                    }
                     size={22}
                     color={COLORS.sub}
                   />
@@ -360,6 +373,41 @@ export default function RegisterScreen({
             })}
           </View>
 
+          {/* Check de TÉRMINOS Y CONDICIONES */}
+          <View style={s.termsRow}>
+            <Switch
+              value={acceptedTerms}
+              onValueChange={() => {
+                if (!acceptedTerms) {
+                  // Si aún no ha aceptado, primero mostramos el modal
+                  setTermsModalVisible(true);
+                } else {
+                  // Si ya estaba aceptado, permitimos desmarcar
+                  setAcceptedTerms(false);
+                }
+              }}
+              thumbColor={acceptedTerms ? COLORS.teal : "#f4f3f4"}
+              trackColor={{ false: "#d1d5db", true: "#a7f3d0" }}
+            />
+            <Text style={s.termsText}>
+              He leído y acepto los{" "}
+              <Text
+                style={s.termsLink}
+                onPress={() => setTermsModalVisible(true)}
+              >
+                Términos y condiciones
+              </Text>{" "}
+              y la{" "}
+              <Text
+                style={s.termsLink}
+                onPress={() => setTermsModalVisible(true)}
+              >
+                Política de privacidad
+              </Text>
+              .
+            </Text>
+          </View>
+
           {/* Botón Crear cuenta */}
           <TouchableOpacity
             style={[s.btn, (!isValid || loading) && { opacity: 0.6 }]}
@@ -393,6 +441,85 @@ export default function RegisterScreen({
           </Text>
         </View>
       </ScrollView>
+
+      {/* MODAL TÉRMINOS Y CONDICIONES */}
+      <Modal
+        visible={termsModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setTermsModalVisible(false)}
+      >
+        <View style={s.modalOverlay}>
+        <View style={s.modalContent}>
+          <Text style={s.modalTitle}>Términos y condiciones</Text>
+
+          <ScrollView style={s.modalScroll}>
+            <Text style={s.modalText}>
+              GlucoGuard es una aplicación diseñada para apoyar el autocontrol de la diabetes.{"\n"}
+              Sin embargo, no reemplaza la evaluación, diagnóstico ni tratamiento de un profesional de la salud.{"\n\n"}
+
+              1. Uso de la aplicación{"\n"}
+              Al crear una cuenta, declaras que la información que entregas es verídica y que utilizarás la app de forma responsable.{"\n"}
+              GlucoGuard se entrega "tal cual", sin garantizar resultados médicos específicos.{"\n\n"}
+
+              2. Protección de datos personales y de salud{"\n"}
+              Tu privacidad es una prioridad para nosotros.{"\n"}
+              GlucoGuard recopila datos personales (como nombre, correo, fecha de nacimiento, teléfono) y datos de salud relacionados con tu condición diabética y tus registros de glucosa.{"\n"}
+              Toda tu información se resguarda mediante medidas técnicas y organizativas destinadas a evitar accesos no autorizados, pérdida o uso indebido.{"\n\n"}
+
+              3. Finalidad del tratamiento de datos{"\n"}
+              Tus datos se utilizan únicamente para:{"\n"}
+              • Crear y administrar tu cuenta.{"\n"}
+              • Mostrar tus registros, alertas y métricas dentro de la aplicación.{"\n"}
+              • Mejorar la seguridad y funcionamiento del sistema.{"\n"}
+              Nunca venderemos tu información personal ni de salud a terceros.{"\n"}
+              Solo se compartirá con proveedores estrictamente necesarios para operar la app, quienes también deben proteger tus datos.{"\n\n"}
+
+              4. Datos anonimizados{"\n"}
+              Podemos usar datos agregados o anonimizados —que no permiten identificarte— para estadísticas, estudios o mejoras internas.{"\n"}
+              Estos datos no pueden vincularse contigo.{"\n\n"}
+
+              5. Derechos sobre tus datos{"\n"}
+              Puedes solicitar acceder, corregir o eliminar tus datos personales almacenados en GlucoGuard, conforme a la legislación vigente en protección de datos.{"\n"}
+              Esto podría implicar la eliminación permanente de tu cuenta e historial.{"\n\n"}
+
+              6. Notificaciones{"\n"}
+              La app puede enviarte alertas relacionadas con niveles de glucosa, recordatorios u otros mensajes útiles.{"\n"}
+              Puedes administrar estas notificaciones desde tu dispositivo o desde la app.{"\n\n"}
+
+              7. Cambios en estos términos{"\n"}
+              Podemos actualizar estos términos cuando sea necesario.{"\n"}
+              Se te notificará dentro de la app en caso de cambios importantes.{"\n"}
+              El uso continuado de GlucoGuard después de cualquier actualización implica que aceptas los nuevos términos.{"\n"}
+            </Text>
+          </ScrollView>
+
+
+            <View style={s.modalButtonsRow}>
+              <TouchableOpacity
+                style={[s.modalButton, s.modalButtonSecondary]}
+                onPress={() => setTermsModalVisible(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={s.modalButtonSecondaryText}>Cerrar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[s.modalButton, s.modalButtonPrimary]}
+                onPress={() => {
+                  setAcceptedTerms(true);
+                  setTermsModalVisible(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={s.modalButtonPrimaryText}>
+                  He leído y acepto
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -488,6 +615,23 @@ const s = StyleSheet.create({
     backgroundColor: "#F9FAFB",
   },
   chipText: { fontSize: 13, color: COLORS.sub },
+  // estilos para los términos
+  termsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    marginBottom: 8,
+    gap: 8,
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 12,
+    color: COLORS.sub,
+  },
+  termsLink: {
+    color: COLORS.teal,
+    fontWeight: "600",
+  },
   btn: {
     marginTop: 8,
     backgroundColor: COLORS.teal,
@@ -525,5 +669,63 @@ const s = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     paddingHorizontal: 10,
+  },
+
+  // 🔹 MODAL estilos
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  modalContent: {
+    width: "100%",
+    maxHeight: "80%",
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  modalScroll: {
+    marginVertical: 8,
+  },
+  modalText: {
+    fontSize: 13,
+    color: COLORS.sub,
+    lineHeight: 18,
+  },
+  modalButtonsRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+    marginTop: 12,
+  },
+  modalButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  modalButtonSecondary: {
+    borderWidth: 1,
+    borderColor: COLORS.gray200,
+    backgroundColor: "#F9FAFB",
+  },
+  modalButtonSecondaryText: {
+    fontSize: 13,
+    color: COLORS.sub,
+  },
+  modalButtonPrimary: {
+    backgroundColor: COLORS.teal,
+  },
+  modalButtonPrimaryText: {
+    fontSize: 13,
+    color: COLORS.white,
+    fontWeight: "600",
   },
 });

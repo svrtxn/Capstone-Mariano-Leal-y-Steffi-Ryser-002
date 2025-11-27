@@ -16,7 +16,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { COLORS } from "../../constants/colors";
-import { Ionicons } from "@expo/vector-icons";
 import { contactosApi } from "../services/api";
 
 type TipoContacto = "familiar" | "amigo" | "profesional" | "medico";
@@ -134,7 +133,7 @@ export default function AmigosScreen() {
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             activeOpacity={0.7}
           >
-            <Ionicons name="arrow-back" size={22} color={COLORS.white} />
+            <Text style={s.backButtonText}>←</Text>
           </TouchableOpacity>
 
           <Image
@@ -198,7 +197,6 @@ export default function AmigosScreen() {
             {[
               { key: "familiar", label: "Familiar" },
               { key: "amigo", label: "Amigo" },
-              { key: "profesional", label: "Profesional" },
               { key: "medico", label: "Médico" },
             ].map((opt) => {
               const active = tipoContacto === opt.key;
@@ -257,11 +255,12 @@ const s = StyleSheet.create({
   headerInner: { alignItems: "center", position: "relative" },
   backButton: {
     position: "absolute",
-    left: 8,
-    top: 8,
+    left: 16,
+    top: 16,
     padding: 8,
     zIndex: 10,
   },
+  backButtonText: { color: COLORS.white, fontSize: 24, fontWeight: "600" },
   logo: { width: 52, height: 52 },
   title: { color: COLORS.white, fontSize: 22, fontWeight: "700", marginTop: 8 },
   subtitle: { color: COLORS.white, opacity: 0.9, marginTop: 4 },

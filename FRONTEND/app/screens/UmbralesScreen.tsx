@@ -118,18 +118,23 @@ export default function UmbralesScreen() {
       const f = Number(freq);
 
       // ===== 1) Validación básica: deben ser números =====
-      if ([hipo, nMin, nMax, hiper, f].some(v => Number.isNaN(v))) {
+      if ([hipo, nMin, nMax, hiper, f].some((v) => Number.isNaN(v))) {
         setSaveMessage("❌ Debes ingresar solo números.");
         return;
       }
 
       // ===== 2) Prevención de valores absurdos =====
       if (
-        hipo < 40 || hipo > 200 ||
-        nMin < 40 || nMin > 250 ||
-        nMax < 40 || nMax > 350 ||
-        hiper < 60 || hiper > 600 ||
-        f < 5 || f > 720
+        hipo < 40 ||
+        hipo > 200 ||
+        nMin < 40 ||
+        nMin > 250 ||
+        nMax < 40 ||
+        nMax > 350 ||
+        hiper < 60 ||
+        hiper > 600 ||
+        f < 5 ||
+        f > 720
       ) {
         setSaveMessage("❌ Valores fuera de rango razonable.");
         return;
@@ -137,7 +142,9 @@ export default function UmbralesScreen() {
 
       // ===== 3) Validar coherencia entre los rangos =====
       if (!(hipo <= nMin && nMin <= nMax && nMax <= hiper)) {
-        setSaveMessage("❌ Debe cumplirse: hipo ≤ normal_min ≤ normal_max ≤ hiper.");
+        setSaveMessage(
+          "❌ Debe cumplirse: hipo ≤ normal_min ≤ normal_max ≤ hiper."
+        );
         return;
       }
 
@@ -171,7 +178,9 @@ export default function UmbralesScreen() {
       }
 
       // 🔥 RELEER CONFIG DESDE EL BACKEND
-      const refresh = await fetch(`${BASE_URL}${CONFIG_BASE}/${uid}`).then(r => r.json());
+      const refresh = await fetch(`${BASE_URL}${CONFIG_BASE}/${uid}`).then((r) =>
+        r.json()
+      );
       const updated = Array.isArray(refresh) ? refresh[0] : refresh;
 
       // 🔥 ACTUALIZAR FORMULARIO
@@ -187,7 +196,6 @@ export default function UmbralesScreen() {
       // Mensaje informativo
       setSaveMessage("✔ Cambios guardados correctamente");
       setTimeout(() => setSaveMessage(null), 4000);
-
     } catch (err) {
       setSaveMessage("❌ Error al guardar la configuración.");
     } finally {
@@ -212,7 +220,7 @@ export default function UmbralesScreen() {
             style={s.backButton}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <Ionicons name="arrow-back" size={22} color={COLORS.white} />
+            <Text style={s.backButtonText}>←</Text>
           </TouchableOpacity>
 
           <Image
@@ -356,11 +364,12 @@ const s = StyleSheet.create({
   headerInner: { alignItems: "center", position: "relative" },
   backButton: {
     position: "absolute",
-    left: 8,
-    top: 8,
+    left: 16,
+    top: 16,
     padding: 8,
     zIndex: 10,
   },
+  backButtonText: { color: COLORS.white, fontSize: 24, fontWeight: "600" },
   logo: { width: 52, height: 52 },
   title: { color: COLORS.white, fontSize: 22, fontWeight: "700", marginTop: 8 },
   subtitle: { color: COLORS.white, opacity: 0.9, marginTop: 4 },
@@ -387,7 +396,12 @@ const s = StyleSheet.create({
     elevation: 2,
     marginBottom: 16,
   },
-  cardTitle: { fontSize: 18, fontWeight: "700", color: COLORS.text, marginBottom: 12 },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: COLORS.text,
+    marginBottom: 12,
+  },
   inputGroup: { marginBottom: 12 },
   inputRow: { flexDirection: "row", gap: 12, marginBottom: 12 },
   inputCol: { flex: 1 },
@@ -401,7 +415,12 @@ const s = StyleSheet.create({
     fontSize: 14,
     backgroundColor: "#F9FAFB",
   },
-  switchRow: { flexDirection: "row", alignItems: "center", marginTop: 8, gap: 12 },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    gap: 12,
+  },
   switchHelp: { fontSize: 12, color: COLORS.sub, marginTop: 2 },
   saveButton: {
     flexDirection: "row",

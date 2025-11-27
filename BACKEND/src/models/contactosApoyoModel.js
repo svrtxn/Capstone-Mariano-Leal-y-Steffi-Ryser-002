@@ -14,7 +14,7 @@ module.exports = {
       data.nombre_contacto,
       data.email_contacto,
       data.telefono_contacto,
-      data.tipo_contacto || "amigo",
+      data.tipo_contacto || "amigo, familiar, medico",
       data.prioridad || 1,
       1,
       "pendiente",

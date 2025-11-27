@@ -1,5 +1,5 @@
 // src/screens/SoporteHomeScreen.tsx
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -251,15 +251,26 @@ export default function SoporteHomeScreen() {
   const [rows, setRows] = useState<GlucoseReading[]>([]);
   const [thresholds, setThresholds] = useState<Thresholds | null>(null);
   const [pacienteName, setPacienteName] = useState<string>("Paciente");
+  const [pacienteId, setPacienteId] = useState<number | null>(null); // 👈 NUEVO
   const [contactName, setContactName] = useState<string>("");
 
   const handleLogout = () => {
     clearSession().finally(() => router.replace("/"));
   };
 
+
   const handleGoHistorial = () => {
-    router.push("./historial"); // si tienes una pantalla de historial genérica
-  };
+  if (!pacienteId) return; // por si todavía no se carga el paciente
+
+  router.push({
+    pathname: "/historial",
+    params: {
+      pacienteId: String(pacienteId),
+      pacienteName,
+      modoApoyo: "1", // 👈 importante para desactivar botones
+    },
+  });
+};
 
   const handleGoInfo = () => {
     router.push("./info");
@@ -279,18 +290,18 @@ export default function SoporteHomeScreen() {
       // 1) Traer pacientes asociados a este contacto
       const pacientes = await contactosApi.misPacientes();
       if (!pacientes || pacientes.length === 0) {
-        // si no tiene pacientes, lo mandamos al home normal o login
         router.replace("/");
         return;
       }
 
       const paciente = pacientes[0]; // por ahora asumimos 1 paciente
       setPacienteName(paciente.nombre_paciente || "Paciente");
-      const pacienteId = paciente.usuario_id;
+      setPacienteId(paciente.usuario_id); // 👈 guardamos el id del paciente
+      const idPaciente = paciente.usuario_id;
 
       // 2) Cargar umbrales del paciente
       try {
-        const configRes = await fetch(`${BASE_URL}${CONFIG_BASE}/${pacienteId}`);
+        const configRes = await fetch(`${BASE_URL}${CONFIG_BASE}/${idPaciente}`);
         if (configRes.ok) {
           const raw = await configRes.json().catch(() => null);
           if (raw) {
@@ -312,7 +323,7 @@ export default function SoporteHomeScreen() {
       }
 
       // 3) Cargar lecturas del paciente
-      const data = await glucoseApi.listByUser(pacienteId);
+      const data = await glucoseApi.listByUser(idPaciente);
 
       let mapped: GlucoseReading[] = (Array.isArray(data) ? data : [])
         .map((r: any) => ({
@@ -347,7 +358,6 @@ export default function SoporteHomeScreen() {
         style={[s.header, { paddingTop: insets.top + 12 }]}
       >
         <View style={s.headerRow}>
-          {/* IZQUIERDA vacía, no puede invitar amigos ni configurar */}
           <View style={{ width: 26 }} />
 
           <View style={s.headerCenter}>
@@ -371,7 +381,6 @@ export default function SoporteHomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* DERECHA vacía (sin ajustes) */}
           <View style={{ width: 26 }} />
         </View>
       </LinearGradient>
@@ -399,7 +408,11 @@ export default function SoporteHomeScreen() {
           </View>
         </View>
 
-        <TouchableOpacity activeOpacity={0.85} onPress={handleGoHistorial} style={s.card}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleGoHistorial}
+          style={s.card}
+        >
           <View style={s.iconContainerSecondary}>
             <Ionicons name="list-outline" size={28} color={COLORS.teal} />
           </View>
@@ -412,7 +425,11 @@ export default function SoporteHomeScreen() {
           <Ionicons name="chevron-forward" size={24} color={COLORS.sub} />
         </TouchableOpacity>
 
-        <TouchableOpacity activeOpacity={0.85} onPress={handleGoInfo} style={s.card}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleGoInfo}
+          style={s.card}
+        >
           <View style={s.iconContainerSecondary}>
             <Ionicons
               name="information-circle-outline"

@@ -14,11 +14,10 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS } from "../../constants/colors";
-import { authApi, contactosApi } from "../services/api";
+import { authApi, contactosApi } from "../services/api"; // 👈 OJO: sin monitoreoApi
 import { Ionicons } from "@expo/vector-icons";
 
 type Props = {
-  // Mandamos id y nombre al padre (solo informativo)
   onLoginSuccess?: (info: { id: number; name: string }) => void;
   onNavigateToRegister?: () => void;
 };
@@ -62,27 +61,21 @@ export default function LoginScreen({
       setStatusType("success");
       setStatusMsg(msg);
 
-      // Informamos al padre, pero la navegación la manejamos aquí
       onLoginSuccess?.({
         id: res.usuario.id,
         name: res.usuario.nombre,
       });
 
-      // 🔥 SIEMPRE decidimos el flujo aquí dentro
+      // 🔥 Sólo decidimos a qué pantalla ir
       try {
         const pacientes = await contactosApi.misPacientes();
-        console.log("misPacientes() =>", pacientes?.length);
-
         if (Array.isArray(pacientes) && pacientes.length > 0) {
-          // Tiene pacientes asignados → es contacto de apoyo
           router.replace("/soporte");
         } else {
-          // Usuario normal → home estándar
           router.replace("/home");
         }
       } catch (err) {
         console.warn("Error revisando misPacientes:", err);
-        // Si falla la API, lo tratamos como usuario normal
         router.replace("/home");
       }
     } catch (e: any) {
@@ -169,7 +162,6 @@ export default function LoginScreen({
             </TouchableOpacity>
           </View>
 
-          {/* Olvidé mi contraseña → pantalla de recuperación */}
           <TouchableOpacity
             onPress={() => router.push("/forgot")}
             activeOpacity={0.7}

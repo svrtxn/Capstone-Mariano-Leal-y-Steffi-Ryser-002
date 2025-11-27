@@ -1,5 +1,9 @@
 // src/screens/HomeScreen.tsx
-import React, { useState, useMemo, useCallback } from "react";
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+} from "react";
 import {
   View,
   Text,
@@ -15,7 +19,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { COLORS } from "../../constants/colors";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Line, Text as SvgText, Circle } from "react-native-svg";
-import { glucoseApi } from "../services/api";
+import { glucoseApi, monitoreoApi } from "../services/api";
 import {
   getCurrentUserId,
   getCurrentUserName,
@@ -36,7 +40,7 @@ type Thresholds = {
 
 const Y_MIN = 0;
 const Y_MAX = 500;
-const HOURS_WINDOW = 12;
+const HOURS_WINDOW = 3; // 3 horas
 const WINDOW_MS = HOURS_WINDOW * 3600 * 1000;
 const CONFIG_BASE = "/config";
 
@@ -61,11 +65,16 @@ function GlucoseChartInline({
   thresholds?: Thresholds | null;
 }) {
   const chartWidth = Math.min(Dimensions.get("window").width - 48, 380);
-  const chartHeight = 200;
-  const padL = 42;
-  const padB = 26;
-  const innerW = chartWidth - padL;
-  const innerH = chartHeight - padB;
+  const chartHeight = 230;
+
+  // Márgenes internos
+  const padL = 64;
+  const padR = 16;
+  const padT = 16;
+  const padB = 46;
+
+  const innerW = chartWidth - padL - padR;
+  const innerH = chartHeight - padB - padT;
 
   const parseTs = (s: string) => {
     if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(s)) {
@@ -85,7 +94,7 @@ function GlucoseChartInline({
   if (points.length === 0) {
     return (
       <View style={s.chartCard}>
-        <Text style={s.cardTitleTop}>Ventana: últimas 12h</Text>
+        <Text style={s.cardTitleTop}>Ventana: últimas 3h</Text>
         <View style={s.emptyBox}>
           <Text style={s.emptyTitle}>Sin datos</Text>
           <Text style={s.emptyText}>
@@ -103,14 +112,14 @@ function GlucoseChartInline({
   const hiper = thresholds?.hiper_max ?? 180;
 
   const getGlucoseColor = (level: number) => {
-    if (level < hipo || level > hiper) return "#ef4444"; // rojo fuera de rango
+    if (level < hipo || level > hiper) return "#ef4444";
     if ((level >= hipo && level < nMin) || (level > nMax && level <= hiper))
-      return "#f59e0b"; // amarillo borde
-    return "#22c55e"; // verde dentro del rango normal
+      return "#f59e0b";
+    return "#22c55e";
   };
 
   const t0 = points[0].ts;
-  const WINDOW_MS_LOCAL = 12 * 3600 * 1000;
+  const WINDOW_MS_LOCAL = 3 * 3600 * 1000;
   const tEnd = t0 + WINDOW_MS_LOCAL;
 
   points = points.filter((p) => p.ts >= t0 && p.ts <= tEnd);
@@ -119,17 +128,17 @@ function GlucoseChartInline({
   const yScale = (lvl: number) => {
     const v = Math.max(Y_MIN, Math.min(Y_MAX, lvl));
     const norm = (v - Y_MIN) / (Y_MAX - Y_MIN);
-    return (1 - norm) * innerH;
+    return padT + (1 - norm) * innerH;
   };
 
   const ticksY = [0, 100, 200, 300, 400, 500];
-  const tickHours = [0, 3, 6, 9, 12];
+  const tickHours = [0, 1, 2, 3];
   const latest = points[points.length - 1].level;
 
   return (
     <View style={s.chartCard}>
       <View style={s.levelRow}>
-        <Text style={s.cardTitleTop}>Ventana: últimas 12h</Text>
+        <Text style={s.cardTitleTop}>Ventana: últimas 3h</Text>
         <Text style={[s.levelValue, { color: getGlucoseColor(latest) }]}>
           {latest}
         </Text>
@@ -149,14 +158,16 @@ function GlucoseChartInline({
                   y1={y}
                   x2={padL + innerW}
                   y2={y}
-                  stroke="#E5E7EB"
+                  stroke="#E0E2E7"
                   strokeDasharray="4 4"
+                  strokeWidth={1}
                 />
                 <SvgText
-                  x={padL - 8}
-                  y={y + 3}
-                  fontSize="10"
-                  fill="#6B7280"
+                  x={padL - 12}
+                  y={y + 4}
+                  fontSize="11"
+                  fontWeight="600"
+                  fill="#4B5563"
                   textAnchor="end"
                 >
                   {v}
@@ -167,22 +178,24 @@ function GlucoseChartInline({
 
           {/* Líneas verticales de tiempo */}
           {tickHours.map((h) => {
-            const x = padL + (h / 12) * innerW;
+            const x = padL + (h / 3) * innerW;
             return (
               <React.Fragment key={`gx-${h}`}>
                 <Line
                   x1={x}
-                  y1={0}
+                  y1={padT}
                   x2={x}
-                  y2={innerH}
-                  stroke="#F3F4F6"
+                  y2={padT + innerH}
+                  stroke="#E5E7EB"
                   strokeDasharray="4 4"
+                  strokeWidth={1}
                 />
                 <SvgText
                   x={x}
-                  y={innerH + 16}
-                  fontSize="10"
-                  fill="#6B7280"
+                  y={padT + innerH + 22}
+                  fontSize="11"
+                  fontWeight="500"
+                  fill="#4B5563"
                   textAnchor="middle"
                 >
                   {h}h
@@ -194,19 +207,19 @@ function GlucoseChartInline({
           {/* Ejes principales */}
           <Line
             x1={padL}
-            y1={0}
+            y1={padT}
             x2={padL}
-            y2={innerH}
-            stroke="#9CA3AF"
-            strokeWidth={1}
+            y2={padT + innerH}
+            stroke="#6B7280"
+            strokeWidth={1.4}
           />
           <Line
             x1={padL}
-            y1={innerH}
+            y1={padT + innerH}
             x2={padL + innerW}
-            y2={innerH}
-            stroke="#9CA3AF"
-            strokeWidth={1}
+            y2={padT + innerH}
+            stroke="#6B7280"
+            strokeWidth={1.4}
           />
 
           {/* Segmentos de línea coloreados según umbrales */}
@@ -281,7 +294,15 @@ export default function HomeScreen({
   const [thresholds, setThresholds] = useState<Thresholds | null>(null);
 
   const handleLogout = () => {
-    clearSession().finally(() => router.replace("/"));
+    // 🛑 Detenemos monitoreo en backend y luego limpiamos sesión
+    monitoreoApi
+      .detener()
+      .catch((err) =>
+        console.warn("Error deteniendo monitoreo al cerrar sesión:", err)
+      )
+      .finally(() => {
+        clearSession().finally(() => router.replace("/"));
+      });
   };
 
   const handleGoFriends = () => {
@@ -310,9 +331,7 @@ export default function HomeScreen({
         if (nm) setNameFromSession(nm);
       }
 
-      // =============================
       // 1) Cargar configuración/umbrales
-      // =============================
       try {
         const configRes = await fetch(`${BASE_URL}${CONFIG_BASE}/${uid}`);
         if (configRes.ok) {
@@ -328,7 +347,6 @@ export default function HomeScreen({
             setThresholds(t);
           }
         } else {
-          // si 404 o error, simplemente se queda en null y usamos defaults
           setThresholds(null);
         }
       } catch (err) {
@@ -336,9 +354,7 @@ export default function HomeScreen({
         setThresholds(null);
       }
 
-      // =============================
-      // 2) Cargar lecturas de glucosa
-      // =============================
+      // 2) Cargar lecturas de glucosa (solo lectura, sin insertar nada)
       const data = await glucoseApi.listByUser();
 
       const soloMias = (Array.isArray(data) ? data : []).filter((r: any) => {
@@ -352,7 +368,7 @@ export default function HomeScreen({
         return Number(id) === Number(uid);
       });
 
-      let mapped: GlucoseReading[] = soloMias
+      const mapped: GlucoseReading[] = soloMias
         .map((r: any) => ({
           time: (r.fecha_registro ||
             r.fechaISO ||
@@ -370,11 +386,51 @@ export default function HomeScreen({
     }
   }, [router, params.name]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadReadingsAndConfig();
-    }, [loadReadingsAndConfig])
-  );
+  // 🔁 Cargar al entrar y luego cada 10 minutos mientras el Home está enfocado
+   // 🔁 Cargar al entrar y luego cada cierto tiempo mientras el Home está enfocado
+useFocusEffect(
+  useCallback(() => {
+    let active = true;
+    let firstRun = true; // 👈 primera ejecución: solo leer BD
+
+    const run = async () => {
+      if (!active) return;
+
+      // 👇 SOLO desde la segunda vez pedimos una nueva lectura al sensor
+      if (!firstRun) {
+        try {
+          await monitoreoApi.iniciar(); // backend lee LibreLink y guarda en BD
+        } catch (err) {
+          console.warn("Error iniciando lectura de sensor:", err);
+        }
+      } else {
+        firstRun = false; // después de la primera pasada, ya podemos llamar al sensor
+      }
+
+      // Siempre recargamos config + lecturas desde MySQL
+      try {
+        await loadReadingsAndConfig();
+      } catch (err) {
+        console.warn("Error recargando lecturas:", err);
+      }
+    };
+
+    // 🔹 Primera vez al entrar a Home:
+    // NO llama al sensor, solo trae lo que ya guardó el login
+    run();
+
+    // 🔹 Luego cada 30 segundos:
+    const id = setInterval(run, 120 * 1000); // ⬅️ CAMBIASTE DE 180*1000 A 30*1000
+
+    // Cleanup cuando sales de Home o pierdes foco
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
+  }, [loadReadingsAndConfig])
+);
+
+
 
   return (
     <View style={s.screen}>
@@ -384,7 +440,6 @@ export default function HomeScreen({
         end={{ x: 1, y: 1 }}
         style={[s.header, { paddingTop: insets.top + 12 }]}
       >
-        {/* fila única: icono amigos - bloque central - icono configuración */}
         <View style={s.headerRow}>
           <TouchableOpacity
             onPress={handleGoFriends}
@@ -558,12 +613,26 @@ const s = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
   },
-  emptyTitle: { fontSize: 16, fontWeight: "600", color: COLORS.text, marginBottom: 4 },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 4,
+  },
   emptyText: { fontSize: 13, color: COLORS.sub, textAlign: "center" },
-  levelRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
+  levelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
   levelValue: { fontSize: 40, fontWeight: "800" },
-  chartContainer: { height: 200, alignSelf: "center", marginBottom: 10 },
-  sectionTitle: { fontSize: 20, fontWeight: "600", color: COLORS.text, marginBottom: 16 },
+  chartContainer: { height: 230, alignSelf: "center", marginBottom: 10 },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 16,
+  },
   menuCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -609,7 +678,12 @@ const s = StyleSheet.create({
   },
   menuTextContainer: { flex: 1, marginLeft: 14 },
   menuTitle: { color: COLORS.white, fontSize: 17, fontWeight: "600" },
-  menuSubtitle: { color: COLORS.white, fontSize: 13, marginTop: 2, opacity: 0.9 },
+  menuSubtitle: {
+    color: COLORS.white,
+    fontSize: 13,
+    marginTop: 2,
+    opacity: 0.9,
+  },
   cardTitle: { color: COLORS.text, fontSize: 17, fontWeight: "600" },
   cardSubtitle: { color: COLORS.sub, fontSize: 13, marginTop: 2 },
 });

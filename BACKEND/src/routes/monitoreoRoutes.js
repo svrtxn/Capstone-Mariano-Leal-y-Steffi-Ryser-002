@@ -1,7 +1,11 @@
 // monitoreoRoutes.js
 const express = require('express');
 const router = express.Router();
-const { iniciarMonitoreoUsuario, detenerMonitoreoUsuario, obtenerUltimaLectura } = require('../services/monitoreoGlucosaService');
+const {
+  iniciarMonitoreoUsuario,
+  detenerMonitoreoUsuario,
+  obtenerUltimaLectura,
+} = require('../services/monitoreoGlucosaService');
 
 // Iniciar monitoreo REAL
 router.post('/niveles-glucosa/monitoreo/iniciar', async (req, res) => {
@@ -10,7 +14,8 @@ router.post('/niveles-glucosa/monitoreo/iniciar', async (req, res) => {
     const resultado = await iniciarMonitoreoUsuario(usuarioId, intervalo);
     res.json(resultado);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error en /monitoreo/iniciar:', error);
+    res.status(500).json({ ok: false, error: error.message });
   }
 });
 
@@ -22,9 +27,17 @@ router.post('/niveles-glucosa/monitoreo/detener', (req, res) => {
 });
 
 // Obtener última lectura
-router.get('/niveles-glucosa/monitoreo/ultima-lectura/:usuarioId', async (req, res) => {
-  const lectura = await obtenerUltimaLectura(req.params.usuarioId);
-  res.json(lectura);
-});
+router.get(
+  '/niveles-glucosa/monitoreo/ultima-lectura/:usuarioId',
+  async (req, res) => {
+    try {
+      const lectura = await obtenerUltimaLectura(req.params.usuarioId);
+      res.json(lectura);
+    } catch (err) {
+      console.error('Error en /monitoreo/ultima-lectura:', err);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  }
+);
 
 module.exports = router;
