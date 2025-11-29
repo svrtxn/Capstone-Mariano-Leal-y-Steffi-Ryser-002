@@ -1,7 +1,0 @@
---> Crear branch con el formato requerido (ISSUE-KEY-SUBTAREA-descripcion).
---> Hacer cambios en el código de esa tarea.
---> Guardar commit usando el issue key en el mensaje.
---> Push del branch a GitHub.
---> Crear Pull Request (PR) con título igual al issue key.
---> Merge del PR, manteniendo el mismo título.
---> Borrar branch local y remoto si quieres limpiar.
