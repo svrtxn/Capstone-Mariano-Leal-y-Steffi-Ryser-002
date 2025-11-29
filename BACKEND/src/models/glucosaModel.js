@@ -63,7 +63,52 @@ const GlucosaModel = {
       [glucosa_id]
     );
     return rows[0];
-  }
+  },
+
+  // Eliminar lectura de glucosa
+  async eliminar(glucosa_id, usuario_id) {
+  const [result] = await db.query(
+    `DELETE FROM ${TABLA} WHERE glucosa_id = ? AND usuario_id = ?`,
+    [glucosa_id, usuario_id]
+  );
+  return result.affectedRows;
+},
+
+  // Actualizar lectura de glucosa
+async actualizar(glucosa_id, usuario_id, data) {
+  const {
+    valor_glucosa,
+    unidad,
+    metodo_registro,
+    origen_sensor,
+    fecha_registro,
+    etiquetado,
+    notas
+  } = data;
+
+  const updateSQL = `
+    UPDATE ${TABLA}
+    SET valor_glucosa = ?, unidad = ?, metodo_registro = ?, origen_sensor = ?, 
+        fecha_registro = ?, etiquetado = ?, notas = ?
+    WHERE glucosa_id = ? AND usuario_id = ?
+  `;
+
+  const [result] = await db.query(updateSQL, [
+    valor_glucosa,
+    unidad,
+    metodo_registro,
+    origen_sensor,
+    fecha_registro,
+    etiquetado,
+    notas,
+    glucosa_id,
+    usuario_id
+  ]);
+
+  return result.affectedRows;
+}
+
+
 };
 
 module.exports = GlucosaModel;

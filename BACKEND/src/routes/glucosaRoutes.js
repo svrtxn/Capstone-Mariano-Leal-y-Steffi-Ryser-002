@@ -9,5 +9,8 @@ router.post('/ingesta', glucosaController.registrarGlucosa);
 router.post('/monitoreo/iniciar', glucosaController.iniciarMonitoreoUsuario);
 router.post('/monitoreo/detener', glucosaController.detenerMonitoreoUsuario);
 router.get('/lectura/:usuarioId', glucosaController.obtenerUltimaLectura);
+router.put('/editar/:glucosaId', glucosaController.actualizarGlucosa);
+router.delete('/eliminar/:glucosaId', glucosaController.eliminarGlucosa);
+
 
 module.exports = router;

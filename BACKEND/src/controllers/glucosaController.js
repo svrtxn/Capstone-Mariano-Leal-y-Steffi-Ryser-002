@@ -182,3 +182,79 @@ exports.obtenerUltimaLectura = async (req, res) => {
     res.status(500).json({ error: 'Error obteniendo última lectura' });
   }
 };
+
+
+exports.eliminarGlucosa = async (req, res) => {
+  try {
+    const { glucosaId } = req.params;
+    const { usuarioId } = req.body;
+
+    if (!glucosaId || !usuarioId) {
+      return res.status(400).json({ mensaje: "glucosaId y usuarioId son obligatorios" });
+    }
+
+    const filas = await GlucosaModel.eliminar(glucosaId, usuarioId);
+
+    if (filas === 0) {
+      return res.status(404).json({ mensaje: "Registro no encontrado o no pertenece al usuario" });
+    }
+
+    return res.json({ mensaje: "Registro eliminado correctamente" });
+
+  } catch (error) {
+    console.error("❌ Error eliminando glucosa:", error);
+    res.status(500).json({ mensaje: "Error eliminando glucosa", error: error.message });
+  }
+};
+
+exports.actualizarGlucosa = async (req, res) => {
+  try {
+    const { glucosaId } = req.params;
+    const {
+      usuario_id,
+      valor_glucosa,
+      unidad,
+      metodo_registro,
+      origen_sensor,
+      fecha_registro,
+      etiquetado,
+      notas
+    } = req.body;
+
+    if (!usuario_id) {
+      return res.status(400).json({ mensaje: "usuario_id es obligatorio" });
+    }
+
+    const dataActualizacion = {
+      valor_glucosa,
+      unidad,
+      metodo_registro,
+      origen_sensor,
+      fecha_registro,
+      etiquetado,
+      notas
+    };
+
+    const filas = await GlucosaModel.actualizar(glucosaId, usuario_id, dataActualizacion);
+
+    if (filas === 0) {
+      return res.status(404).json({ mensaje: "Registro no encontrado o no pertenece al usuario" });
+    }
+
+    const updated = await GlucosaModel.obtenerPorId(glucosaId);
+
+    return res.json({
+      mensaje: "Registro actualizado correctamente",
+      lectura: {
+        ...updated,
+        fecha_registro: new Date(updated.fecha_registro).toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Error actualizando glucosa:", error);
+    res.status(500).json({ mensaje: "Error actualizando glucosa", error: error.message });
+  }
+};
+
+

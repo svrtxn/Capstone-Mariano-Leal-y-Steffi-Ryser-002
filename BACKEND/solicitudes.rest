@@ -101,17 +101,41 @@ GET http://localhost:8080/config/12
 ##################################################
 
 ### Registrar nivel de glucosa
-POST http://localhost:8080/niveles-glucosa/ingesta
+POST http://192.168.100.4:3030/niveles-glucosa/ingesta
 Content-Type: application/json
 
 {
-  "usuario_id": 7,
+  "usuario_id": 25,
   "valor_glucosa": 190,
   "fecha_registro": "2025-01-19T15:30:00Z",
   "metodo_registro": "manual",
   "etiquetado": "ayuno",
   "notas": "prueba manual"
 }
+
+###
+PUT http://192.168.100.4:3030/niveles-glucosa/editar/65
+Content-Type: application/json
+
+{
+  "usuario_id": 25,
+  "valor_glucosa": 240,
+  "unidad": "mg/dL",
+  "metodo_registro": "manual",
+  "origen_sensor": null,
+  "fecha_registro": "2025-01-12T09:00:00Z",
+  "etiquetado": "ayuno",
+  "notas": "Corrección"
+}
+
+###
+DELETE http://192.168.100.4:3030/niveles-glucosa/eliminar/65
+Content-Type: application/json
+
+{
+  "usuarioId": 25
+}
+
 
 ###
 
