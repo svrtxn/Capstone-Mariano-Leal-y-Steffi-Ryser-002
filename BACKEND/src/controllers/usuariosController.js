@@ -26,13 +26,16 @@ async function registroUsuario(req, res) {
     const {
       correo, contrasena, nombre, apellido,
       fechaNacimiento, telefono, rol,
-      tieneSensor, tipoDiabetes, token_invitacion // <--- aquí agregamos token opcional
+      tieneSensor, tipoDiabetes,
+      token_invitacion   // <--- token opcional
     } = req.body;
 
     let lecturaLibre = null;
     let contrasenaLibreLink = null;
 
-    // --- Validación con LibreLink antes de registrar ---
+    // =====================================================
+    // 1. Validación LibreLink (si tiene sensor)
+    // =====================================================
     if (tieneSensor) {
       try {
         const client = new LibreLinkClient({
@@ -57,7 +60,16 @@ async function registroUsuario(req, res) {
       }
     }
 
-    // --- Crear usuario en DB ---
+    // =====================================================
+    // 2. Definir ROL FINAL
+    // =====================================================
+    // Si llega token_invitacion → rol "amigo"
+    // Si no → rol enviado o "paciente"
+    const rolFinal = token_invitacion ? "amigo" : (rol || "paciente");
+
+    // =====================================================
+    // 3. Crear usuario en MySQL
+    // =====================================================
     const hashedPassword = await bcrypt.hash(contrasena, 10);
 
     const usuario_id = await UsuarioModel.crear({
@@ -66,7 +78,7 @@ async function registroUsuario(req, res) {
       email: correo,
       contraseña: hashedPassword,
       fecha_nacimiento: fechaNacimiento || null,
-      rol: rol || 'paciente',
+      rol: rolFinal,                     // <-- AQUÍ EL NUEVO ROL
       telefono: telefono || null,
       ultimo_login: new Date(),
       fecha_creacion: new Date(),
@@ -75,7 +87,9 @@ async function registroUsuario(req, res) {
       ...(tieneSensor && { contrasena_librelink: contrasenaLibreLink })
     });
 
-    // --- Crear usuario en Firebase ---
+    // =====================================================
+    // 4. Crear usuario en Firebase Auth
+    // =====================================================
     await admin.auth().createUser({
       uid: String(usuario_id),
       email: correo,
@@ -83,39 +97,50 @@ async function registroUsuario(req, res) {
       displayName: `${nombre} ${apellido}`
     });
 
+    // =====================================================
+    // 5. Si viene token_invitacion → aceptar y vincular invitación
+    // =====================================================
     if (token_invitacion) {
       const invitacion = await contactosModel.buscarPorToken(token_invitacion);
+
       if (invitacion) {
-        await contactosModel.actualizarEstado(token_invitacion, "aceptada", usuario_id);
+        await contactosModel.actualizarEstado(
+          token_invitacion,
+          "aceptada",
+          usuario_id
+        );
       }
     }
 
-    // ❌ ANTES: aquí se guardaba también en MySQL y Firebase
-    // --- Guardar lectura inicial si tiene sensor ---
-    // if (lecturaLibre) await guardarLecturaSensor(lecturaLibre, usuario_id);
-    //
-    // ✅ AHORA: solo la usamos para devolverla al front si quieres mostrarla,
-    // pero dejamos que el monitoreo (Home) sea el que inserta en la BD.
-
-    // --- Generar JWT ---
+    // =====================================================
+    // 6. Generar JWT
+    // =====================================================
     const SECRET = process.env.JWT_SECRET || 'clave_secreta';
     const token = jwt.sign({ id: usuario_id, email: correo }, SECRET, { expiresIn: '7d' });
 
+    // =====================================================
+    // 7. Respuesta final
+    // =====================================================
     res.status(201).json({
       token,
       usuario: {
         id: usuario_id,
         nombre,
         email: correo,
+        rol: rolFinal,
         fecha_registro: new Date().toISOString(),
         tieneSensor: !!tieneSensor
       },
-      lecturaLibre   // la devuelves por si el front la quiere mostrar
+      lecturaLibre
     });
 
   } catch (error) {
     console.error('Error registroUsuario:', error);
-    res.status(500).json({ ok: false, mensaje: 'Error al registrar usuario', error: error.message });
+    res.status(500).json({
+      ok: false,
+      mensaje: 'Error al registrar usuario',
+      error: error.message
+    });
   }
 }
 

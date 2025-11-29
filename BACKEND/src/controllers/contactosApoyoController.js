@@ -234,19 +234,91 @@ module.exports = {
     res.json({ msg: "Prioridad cambiada" });
   },
 
-  // =====================================================
-  // G. Mis pacientes
-  // =====================================================
-  async misPacientes(req, res) {
+
+
+  // H. Ver mis contactos de apoyo
+  async verContactos(req, res) {
     try {
-      const { contacto_usuario_id } = req.body;
+      const { usuario_id } = req.params;
 
-      const pacientes = await contactosModel.misPacientes(contacto_usuario_id);
+      const contactos = await contactosModel.verContactos(usuario_id);
 
-      res.json(pacientes);
+      return res.json(contactos);
     } catch (err) {
       console.log(err);
-      res.status(500).json({ msg: "Error interno" });
+      return res.status(500).json({ msg: "Error interno" });
+    }
+  }, 
+  // I. Eliminar contacto de apoyo
+  async eliminarContacto(req, res) {
+    try {
+      const { contacto_id } = req.params;
+
+      const result = await contactosModel.eliminarContacto(contacto_id);
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ msg: "Contacto no encontrado" });
+      }
+
+      return res.json({ msg: "Contacto eliminado correctamente" });
+    } catch (err) {
+      console.log(err);
+      return res.status(500).json({ msg: "Error interno" });
     }
   },
+  // J. Editar contacto
+async editarContacto(req, res) {
+  try {
+    const { contacto_id } = req.params;
+    const {
+      nombre_contacto,
+      email_contacto,
+      telefono_contacto,
+      tipo_contacto,
+      prioridad,
+      habilitado
+    } = req.body;
+
+    const result = await contactosModel.editarContacto(
+      contacto_id,
+      nombre_contacto,
+      email_contacto,
+      telefono_contacto,
+      tipo_contacto,
+      prioridad,
+      habilitado
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ msg: "Contacto no encontrado" });
+    }
+
+    return res.json({ msg: "Contacto actualizado correctamente" });
+
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ msg: "Error interno" });
+  }
+},
+// K. Ver todas las invitaciones enviadas por un paciente
+async verInvitacionesEnviadas(req, res) {
+  try {
+    const { usuario_id } = req.params;
+
+    const invitaciones = await contactosModel.verInvitacionesEnviadas(usuario_id);
+
+    return res.json(invitaciones);
+
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ msg: "Error interno" });
+  }
+}
+
+
+
+
 };
+
+
+

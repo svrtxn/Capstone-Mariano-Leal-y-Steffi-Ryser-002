@@ -21,7 +21,7 @@ Content-Type: application/json
 ###
 
 ### Registro de Usuario sin sensor
-POST http://localhost:8080/usuarios/registro
+POST http://192.168.100.4:3030/usuarios/registro
 Content-Type: application/json
 
 {
@@ -39,11 +39,11 @@ Content-Type: application/json
 ###
 
 ### Inicio de Sesión
-POST http://localhost:8080/usuarios/inicio-sesion
+POST http://192.168.100.4:3030/usuarios/inicio-sesion
 Content-Type: application/json
 
 {
-  "correo": "steffi.ryser.t@gmail.com",
+  "correo": "usuario.sin.sensor@gmail.com",
   "contrasena": "Comelonmas1."
 }
 
@@ -76,7 +76,7 @@ Content-Type: application/json
 ##################################################
 
 ### Configurar usuario
-POST http://localhost:8080/config/12
+POST http://192.168.100.4:3030/config/26
 Content-Type: application/json
 
 {
@@ -93,7 +93,7 @@ Content-Type: application/json
 ###
 
 ### Obtener configuración
-GET http://localhost:8080/config/12
+GET http://192.168.100.4:3030/config/26
 ###
 
 ##################################################
@@ -105,7 +105,7 @@ POST http://192.168.100.4:3030/niveles-glucosa/ingesta
 Content-Type: application/json
 
 {
-  "usuario_id": 25,
+  "usuario_id": 26,
   "valor_glucosa": 190,
   "fecha_registro": "2025-01-19T15:30:00Z",
   "metodo_registro": "manual",
@@ -114,11 +114,11 @@ Content-Type: application/json
 }
 
 ###
-PUT http://192.168.100.4:3030/niveles-glucosa/editar/65
+PUT http://192.168.100.4:3030/niveles-glucosa/editar/66
 Content-Type: application/json
 
 {
-  "usuario_id": 25,
+  "usuario_id": 26,
   "valor_glucosa": 240,
   "unidad": "mg/dL",
   "metodo_registro": "manual",
@@ -169,12 +169,12 @@ GET http://localhost:8080/niveles-glucosa/monitoreo/ultima-lectura/
 ##################################################
 
 ### 1. Crear invitación
-POST http://localhost:8080/contactos-apoyo/invitar
+POST http://192.168.100.4:3030/contactos-apoyo/invitar
 Content-Type: application/json
 
 {
-  "usuario_id": 10,
-  "nombre_contacto": "Juana Gomez",
+  "usuario_id": 26,
+  "nombre_contacto": "Prueba 1",
   "email_contacto": "correo@ejemplo.com",
   "telefono_contacto": "+56944332211",
   "tipo_contacto": "familiar"
@@ -183,29 +183,29 @@ Content-Type: application/json
 ###
 
 ### 2. Redirección GET desde correo (simula clic del usuario)
-GET http://localhost:8080/contactos-apoyo/aceptar/TOKEN
+GET http://192.168.100.4:3030/contactos-apoyo/aceptar/ad09a414-4793-43de-b519-29d06650782f
 ###
 
 ### 3. Aceptar invitación (marca como aceptada)
-POST http://localhost:8080/contactos-apoyo/aceptar/TOKEN
+POST http://192.168.100.4:3030/contactos-apoyo/aceptar/ad09a414-4793-43de-b519-29d06650782f
 Content-Type: application/json
 
 ###
 
 ### 4. Registro de usuario desde invitación
-POST http://localhost:8080/usuarios/registro
+POST http://192.168.100.4:3030/usuarios/registro
 Content-Type: application/json
 
 {
   "tieneSensor": false,
   "correo": "juana.gomez@gmail.com",
   "contrasena": "Comelonmas1.",
-  "nombre": "Juana",
+  "nombre": "prueba",
   "apellido": "Gomez",
   "fechaNacimiento": "2004-05-25",
   "telefono": "955523789",
-  "rol": "diabetico",
-  "token_invitacion": "TOKEN"
+  "rol": "amigo",
+  "token_invitacion": "ad09a414-4793-43de-b519-29d06650782f"
 }
 
 ###
@@ -235,9 +235,32 @@ Content-Type: application/json
 ###
 
 ### 8. Obtener mis pacientes
-POST http://localhost:8080/contactos-apoyo/mis-pacientes
+POST http://192.168.100.4:3030/contactos-apoyo/mis-contactos
 Content-Type: application/json
 
 {
-  "contacto_usuario_id": 16
+  "usuario_id": 26
 }
+###
+GET http://192.168.100.4:3030/contactos-apoyo/mis-contactos/26
+
+
+
+### Editar contacto de apoyo
+PUT http://192.168.100.4:3030/contactos-apoyo/mis-contactos/42
+Content-Type: application/json
+
+{
+  "nombre_contacto": "Mariano Actualizado",
+  "email_contacto": "mariano_editado@gmail.com",
+  "telefono_contacto": "+56912345678",
+  "tipo_contacto": "familiar",
+  "prioridad": 2,
+  "habilitado": 1
+}
+
+### Eliminar contacto de apoyo
+DELETE http://192.168.100.4:3030/contactos-apoyo/mis-contactos/39
+
+### Ver todas mis invitaciones enviadas
+GET http://192.168.100.4:3030/contactos-apoyo/invitaciones/26

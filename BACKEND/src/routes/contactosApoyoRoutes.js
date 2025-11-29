@@ -4,13 +4,10 @@ const router = express.Router();
 const controller = require("../controllers/contactosApoyoController");
 
 // ======================================================
-//     Ruta GET para cuando el usuario hace clic
-//     en el correo (evita el error Cannot GET ...)
+//     Ruta GET cuando el usuario hace clic en el correo
 // ======================================================
 router.get("/aceptar/:token", (req, res) => {
   const { token } = req.params;
-
-  // Cambia esta URL por la de tu FRONTEND
   return res.redirect(`http://localhost:8081/aceptar-invitacion/${token}`);
 });
 
@@ -25,6 +22,7 @@ router.post("/invitar", controller.invitarContacto);
 router.post("/aceptar/:token", controller.aceptarInvitacion);
 router.post("/rechazar/:token", controller.rechazarInvitacion);
 router.post("/vincular", controller.vincularInvitacion);
+
 // ======================================================
 //     D. Verificar acceso
 // ======================================================
@@ -40,9 +38,26 @@ router.patch("/:id/habilitar", controller.habilitar);
 // ======================================================
 router.patch("/:id/prioridad", controller.cambiarPrioridad);
 
+
+
 // ======================================================
-//     G. Mis pacientes
+//     🆕 H. Ver mis contactos de apoyo (del paciente)
 // ======================================================
-router.post("/mis-pacientes", controller.misPacientes);
+router.get("/mis-contactos/:usuario_id", controller.verContactos);
+
+// ======================================================
+//     🆕 I. Eliminar contacto de apoyo
+// ======================================================
+router.delete("/mis-contactos/:contacto_id", controller.eliminarContacto);
+
+
+// ======================================================
+//     🆕 J. Editar contacto de apoyo
+// ======================================================
+router.put("/mis-contactos/:contacto_id", controller.editarContacto);
+
+// K. Ver todas las invitaciones enviadas
+router.get("/invitaciones/:usuario_id", controller.verInvitacionesEnviadas);
+
 
 module.exports = router;
