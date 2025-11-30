@@ -275,6 +275,7 @@ export const contactosApi = {
 
   // 2) Aceptar invitación desde el link del correo ([token].tsx)
   async aceptarInvitacion(token: string) {
+    // puedes usar GET o POST, aquí mantenemos POST porque tu back lo soporta
     return postJSON<{
       ok: boolean;
       invitacion: {
@@ -289,6 +290,7 @@ export const contactosApi = {
 
   // 3) Vincular invitación al usuario recién registrado
   async vincularInvitacion(data: { token: string; contacto_usuario_id: number }) {
+    console.log("ENVIANDO A VINCULAR ===>", data);
     return postJSON<{ msg: string }>("/contactos-apoyo/vincular", data);
   },
 
@@ -436,5 +438,20 @@ export const monitoreoApi = {
     } catch (e) {
       console.warn("No se pudo detener monitoreo:", e);
     }
+  },
+};
+
+/* =========================
+   API NOTIFICACIONES PUSH
+   ========================= */
+
+export const notificacionesApi = {
+  async registrarToken(input: { usuario_id: number; expo_token: string }) {
+    // Tu BACK tiene la ruta: POST /api/notificaciones/registrar-token
+    // BASE_URL = "http://IP:PUERTO", por eso aquí incluimos /api/...
+    return postJSON<{ ok?: boolean; mensaje?: string }>(
+      "/api/notificaciones/registrar-token",
+      input
+    );
   },
 };

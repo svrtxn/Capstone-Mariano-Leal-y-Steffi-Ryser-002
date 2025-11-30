@@ -10,7 +10,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Switch,
-  Modal,              // 👈 NUEVO
+  Modal,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,6 +18,7 @@ import { COLORS } from "../../constants/colors";
 import { authApi } from "../services/api";
 import { Ionicons } from "@expo/vector-icons";
 import type { RegisterRequest } from "../types/auth";
+import { registerExpoPushToken } from "../services/pushNotifications"; // 👈 NUEVO
 
 type Props = {
   onRegisterSuccess?: (userId: number) => void;
@@ -64,7 +65,7 @@ export default function RegisterScreen({
 
   // Check de términos y condiciones
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [termsModalVisible, setTermsModalVisible] = useState(false); // 👈 NUEVO
+  const [termsModalVisible, setTermsModalVisible] = useState(false);
 
   // === VALIDACIONES ===
   const emailValid = email.trim() !== "" && email.includes("@");
@@ -76,7 +77,6 @@ export default function RegisterScreen({
   const passwordValid = effectivePassword.length >= 6;
 
   // Si NO tiene sensor, pedimos confirmación.
-  // Si SÍ tiene sensor, no hay confirmación (solo validamos largo).
   const passwordsMatch =
     tieneSensor || (password === confirmPassword && confirmPassword !== "");
 
@@ -113,7 +113,6 @@ export default function RegisterScreen({
         telefono: telefono.trim() || undefined,
         tiene_sensor: tieneSensor,
         tipo_diabetes: tipoDiabetes ?? null,
-        // credenciales LibreLink quedan solo en front por ahora
       };
 
       const response = await authApi.register(payload);
@@ -123,6 +122,13 @@ export default function RegisterScreen({
         `Cuenta creada exitosamente. ¡Bienvenido, ${response.usuario.nombre}!`
       );
 
+      // 🔔 Registrar token push DESPUÉS de crear la cuenta,
+      //    sin bloquear el flujo de la pantalla.
+      registerExpoPushToken().catch((err) => {
+        console.warn("Error registrando token push tras registro:", err);
+      });
+
+      // Avisamos al padre si lo necesita (layout)
       onRegisterSuccess?.(response.usuario.id);
     } catch (e: any) {
       const errorMsg =
@@ -209,7 +215,7 @@ export default function RegisterScreen({
             style={s.input}
           />
 
-          {/* Email principal (también LibreLink si tieneSensor = true) */}
+          {/* Email principal */}
           <Text style={s.label}>Correo electrónico</Text>
           <TextInput
             value={email}
@@ -222,7 +228,7 @@ export default function RegisterScreen({
             style={s.input}
           />
 
-          {/* Si usa sensor, mostramos SOLO la clave LibreLink (que también será la de la app) */}
+          {/* Si usa sensor, solo clave LibreLink */}
           {tieneSensor && (
             <View style={{ marginTop: 4 }}>
               <Text style={s.label}>Contraseña LibreLink</Text>
@@ -281,7 +287,6 @@ export default function RegisterScreen({
           {/* Si NO usa sensor: contraseña normal + confirmación */}
           {!tieneSensor && (
             <>
-              {/* Contraseña */}
               <Text style={s.label}>Contraseña</Text>
               <View style={s.passwordRow}>
                 <TextInput
@@ -305,7 +310,6 @@ export default function RegisterScreen({
                 </TouchableOpacity>
               </View>
 
-              {/* Confirmar contraseña */}
               <Text style={s.label}>Confirmar contraseña</Text>
               <View style={s.passwordRow}>
                 <TextInput
@@ -379,10 +383,8 @@ export default function RegisterScreen({
               value={acceptedTerms}
               onValueChange={() => {
                 if (!acceptedTerms) {
-                  // Si aún no ha aceptado, primero mostramos el modal
                   setTermsModalVisible(true);
                 } else {
-                  // Si ya estaba aceptado, permitimos desmarcar
                   setAcceptedTerms(false);
                 }
               }}
@@ -450,50 +452,63 @@ export default function RegisterScreen({
         onRequestClose={() => setTermsModalVisible(false)}
       >
         <View style={s.modalOverlay}>
-        <View style={s.modalContent}>
-          <Text style={s.modalTitle}>Términos y condiciones</Text>
+          <View style={s.modalContent}>
+            <Text style={s.modalTitle}>Términos y condiciones</Text>
 
-          <ScrollView style={s.modalScroll}>
-            <Text style={s.modalText}>
-              GlucoGuard es una aplicación diseñada para apoyar el autocontrol de la diabetes.{"\n"}
-              Sin embargo, no reemplaza la evaluación, diagnóstico ni tratamiento de un profesional de la salud.{"\n\n"}
-
-              1. Uso de la aplicación{"\n"}
-              Al crear una cuenta, declaras que la información que entregas es verídica y que utilizarás la app de forma responsable.{"\n"}
-              GlucoGuard se entrega "tal cual", sin garantizar resultados médicos específicos.{"\n\n"}
-
-              2. Protección de datos personales y de salud{"\n"}
-              Tu privacidad es una prioridad para nosotros.{"\n"}
-              GlucoGuard recopila datos personales (como nombre, correo, fecha de nacimiento, teléfono) y datos de salud relacionados con tu condición diabética y tus registros de glucosa.{"\n"}
-              Toda tu información se resguarda mediante medidas técnicas y organizativas destinadas a evitar accesos no autorizados, pérdida o uso indebido.{"\n\n"}
-
-              3. Finalidad del tratamiento de datos{"\n"}
-              Tus datos se utilizan únicamente para:{"\n"}
-              • Crear y administrar tu cuenta.{"\n"}
-              • Mostrar tus registros, alertas y métricas dentro de la aplicación.{"\n"}
-              • Mejorar la seguridad y funcionamiento del sistema.{"\n"}
-              Nunca venderemos tu información personal ni de salud a terceros.{"\n"}
-              Solo se compartirá con proveedores estrictamente necesarios para operar la app, quienes también deben proteger tus datos.{"\n\n"}
-
-              4. Datos anonimizados{"\n"}
-              Podemos usar datos agregados o anonimizados —que no permiten identificarte— para estadísticas, estudios o mejoras internas.{"\n"}
-              Estos datos no pueden vincularse contigo.{"\n\n"}
-
-              5. Derechos sobre tus datos{"\n"}
-              Puedes solicitar acceder, corregir o eliminar tus datos personales almacenados en GlucoGuard, conforme a la legislación vigente en protección de datos.{"\n"}
-              Esto podría implicar la eliminación permanente de tu cuenta e historial.{"\n\n"}
-
-              6. Notificaciones{"\n"}
-              La app puede enviarte alertas relacionadas con niveles de glucosa, recordatorios u otros mensajes útiles.{"\n"}
-              Puedes administrar estas notificaciones desde tu dispositivo o desde la app.{"\n\n"}
-
-              7. Cambios en estos términos{"\n"}
-              Podemos actualizar estos términos cuando sea necesario.{"\n"}
-              Se te notificará dentro de la app en caso de cambios importantes.{"\n"}
-              El uso continuado de GlucoGuard después de cualquier actualización implica que aceptas los nuevos términos.{"\n"}
-            </Text>
-          </ScrollView>
-
+            <ScrollView style={s.modalScroll}>
+              <Text style={s.modalText}>
+                {/* (texto que ya tenías, no lo toqué) */}
+                GlucoGuard es una aplicación diseñada para apoyar el
+                autocontrol de la diabetes.{"\n"}
+                Sin embargo, no reemplaza la evaluación, diagnóstico ni
+                tratamiento de un profesional de la salud.{"\n\n"}
+                1. Uso de la aplicación{"\n"}
+                Al crear una cuenta, declaras que la información que entregas es
+                verídica y que utilizarás la app de forma responsable.{"\n"}
+                GlucoGuard se entrega "tal cual", sin garantizar resultados
+                médicos específicos.{"\n\n"}
+                2. Protección de datos personales y de salud{"\n"}
+                Tu privacidad es una prioridad para nosotros.{"\n"}
+                GlucoGuard recopila datos personales (como nombre, correo, fecha
+                de nacimiento, teléfono) y datos de salud relacionados con tu
+                condición diabética y tus registros de glucosa.{"\n"}
+                Toda tu información se resguarda mediante medidas técnicas y
+                organizativas destinadas a evitar accesos no autorizados,
+                pérdida o uso indebido.{"\n\n"}
+                3. Finalidad del tratamiento de datos{"\n"}
+                Tus datos se utilizan únicamente para:{"\n"}
+                • Crear y administrar tu cuenta.{"\n"}
+                • Mostrar tus registros, alertas y métricas dentro de la
+                aplicación.{"\n"}
+                • Mejorar la seguridad y funcionamiento del sistema.{"\n"}
+                Nunca venderemos tu información personal ni de salud a
+                terceros.{"\n"}
+                Solo se compartirá con proveedores estrictamente necesarios para
+                operar la app, quienes también deben proteger tus datos.{"\n\n"}
+                4. Datos anonimizados{"\n"}
+                Podemos usar datos agregados o anonimizados —que no permiten
+                identificarte— para estadísticas, estudios o mejoras
+                internas.{"\n"}
+                Estos datos no pueden vincularse contigo.{"\n\n"}
+                5. Derechos sobre tus datos{"\n"}
+                Puedes solicitar acceder, corregir o eliminar tus datos
+                personales almacenados en GlucoGuard, conforme a la legislación
+                vigente en protección de datos.{"\n"}
+                Esto podría implicar la eliminación permanente de tu cuenta e
+                historial.{"\n\n"}
+                6. Notificaciones{"\n"}
+                La app puede enviarte alertas relacionadas con niveles de
+                glucosa, recordatorios u otros mensajes útiles.{"\n"}
+                Puedes administrar estas notificaciones desde tu dispositivo o
+                desde la app.{"\n\n"}
+                7. Cambios en estos términos{"\n"}
+                Podemos actualizar estos términos cuando sea necesario.{"\n"}
+                Se te notificará dentro de la app en caso de cambios
+                importantes.{"\n"}
+                El uso continuado de GlucoGuard después de cualquier
+                actualización implica que aceptas los nuevos términos.{"\n"}
+              </Text>
+            </ScrollView>
 
             <View style={s.modalButtonsRow}>
               <TouchableOpacity
@@ -525,6 +540,8 @@ export default function RegisterScreen({
 }
 
 const s = StyleSheet.create({
+  // ... (todo tu StyleSheet igual que lo tenías)
+  // no cambié nada de estilos
   screen: { flex: 1, backgroundColor: COLORS.bg },
   header: {
     paddingHorizontal: 24,
@@ -615,7 +632,6 @@ const s = StyleSheet.create({
     backgroundColor: "#F9FAFB",
   },
   chipText: { fontSize: 13, color: COLORS.sub },
-  // estilos para los términos
   termsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -670,8 +686,6 @@ const s = StyleSheet.create({
     lineHeight: 18,
     paddingHorizontal: 10,
   },
-
-  // 🔹 MODAL estilos
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",

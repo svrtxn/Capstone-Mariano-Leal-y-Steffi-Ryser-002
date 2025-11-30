@@ -1,10 +1,10 @@
+// src/controllers/contactosApoyoController.js
 const { v4: uuidv4 } = require("uuid");
 const contactosModel = require("../models/contactosApoyoModel");
 const usuariosModel = require("../models/usuarioModel");
 const sendEmail = require("../utils/sendEmail");
 
 module.exports = {
-
   // Invitación de contacto de apoyo
   async invitarContacto(req, res) {
     try {
@@ -38,7 +38,6 @@ module.exports = {
         token_invitacion: token,
       });
 
-
       // Enviar correo Ethereal
       const { previewURL } = await sendEmail(
         email_contacto,
@@ -63,13 +62,13 @@ module.exports = {
               </p>
 
               <div style="text-align:center; margin:30px 0;">
-                <a href="http://172.20.10.2:3030/contactos-apoyo/aceptar/${token}"
+                <a href="http://172.20.10.2:8081/aceptar-invitacion/${token}"
                   style="
                     background:#3DB7C4;
                     color:white;
                     padding:14px 24px;
                     border-radius:8px;
-                    text-decoration:none;
+                    text-decoration:none; 
                     font-size:16px;
                     font-weight:bold;
                     display:inline-block;
@@ -104,8 +103,7 @@ module.exports = {
     }
   },
 
-
-  // Aceptar invitación (token por params)
+  // Aceptar invitación (token por params) → sólo valida y devuelve datos
   async aceptarInvitacion(req, res) {
     try {
       const { token } = req.params;
@@ -122,10 +120,10 @@ module.exports = {
         ok: true,
         invitacion: {
           token,
-          contacto_id: invitacion.id,          
+          contacto_id: invitacion.contacto_id,
           nombre_contacto: invitacion.nombre_contacto,
           email_contacto: invitacion.email_contacto,
-          paciente_id: invitacion.usuario_id,   // el paciente que invitó
+          paciente_id: invitacion.usuario_id, // el paciente que invitó
         },
       });
     } catch (err) {
@@ -133,7 +131,6 @@ module.exports = {
       return res.status(500).json({ error: "Error interno" });
     }
   },
-
 
   // Rechazar invitación
   async rechazarInvitacion(req, res) {
@@ -153,6 +150,7 @@ module.exports = {
   async vincularInvitacion(req, res) {
     try {
       const { token, contacto_usuario_id } = req.body;
+      console.log("BODY VINCULAR ===>", req.body);
 
       if (!token || !contacto_usuario_id) {
         return res
@@ -165,6 +163,8 @@ module.exports = {
         contacto_usuario_id
       );
 
+      console.log("RESULTADO UPDATE ===>", resultado);
+
       if (resultado.affectedRows === 0) {
         return res
           .status(404)
@@ -174,6 +174,26 @@ module.exports = {
       return res.json({ msg: "Invitación aceptada y vinculada correctamente" });
     } catch (err) {
       console.error("Error al vincular invitación:", err);
+      return res.status(500).json({ msg: "Error interno" });
+    }
+  },
+
+  // 🔥 NUEVO: ver pacientes de un contacto de apoyo
+  async misPacientes(req, res) {
+    try {
+      const { contacto_usuario_id } = req.body;
+
+      if (!contacto_usuario_id) {
+        return res
+          .status(400)
+          .json({ msg: "Falta contacto_usuario_id en el cuerpo de la petición" });
+      }
+
+      const pacientes = await contactosModel.verPacientes(contacto_usuario_id);
+
+      return res.json(pacientes);
+    } catch (err) {
+      console.error("Error en misPacientes:", err);
       return res.status(500).json({ msg: "Error interno" });
     }
   },
@@ -220,7 +240,7 @@ module.exports = {
     res.json({ msg: "Prioridad cambiada" });
   },
 
-  //  Ver mis contactos de apoyo
+  //  Ver mis contactos de apoyo (como paciente)
   async verContactos(req, res) {
     try {
       const { usuario_id } = req.params;
@@ -232,7 +252,7 @@ module.exports = {
       console.log(err);
       return res.status(500).json({ msg: "Error interno" });
     }
-  }, 
+  },
 
   // Eliminar contacto de apoyo
   async eliminarContacto(req, res) {
@@ -262,7 +282,7 @@ module.exports = {
         telefono_contacto,
         tipo_contacto,
         prioridad,
-        habilitado
+        habilitado,
       } = req.body;
 
       const result = await contactosModel.editarContacto(
@@ -280,27 +300,24 @@ module.exports = {
       }
 
       return res.json({ msg: "Contacto actualizado correctamente" });
-
     } catch (err) {
       console.log(err);
       return res.status(500).json({ msg: "Error interno" });
     }
-    },
+  },
+
   //  Ver todas las invitaciones enviadas por un paciente
   async verInvitacionesEnviadas(req, res) {
     try {
       const { usuario_id } = req.params;
 
-      const invitaciones = await contactosModel.verInvitacionesEnviadas(usuario_id);
+      const invitaciones =
+        await contactosModel.verInvitacionesEnviadas(usuario_id);
 
       return res.json(invitaciones);
-
     } catch (err) {
       console.log(err);
       return res.status(500).json({ msg: "Error interno" });
     }
-  }
+  },
 };
-
-
-

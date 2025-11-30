@@ -14,7 +14,11 @@ import { COLORS } from "../../constants/colors";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function AceptarInvitacionScreen() {
-  const { token } = useLocalSearchParams<{ token: string }>();
+  // 🔑 Normalizamos el token a string plano
+  const params = useLocalSearchParams<{ token?: string | string[] }>();
+  const rawToken = params.token;
+  const token = Array.isArray(rawToken) ? rawToken[0] : rawToken ?? "";
+
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -39,13 +43,15 @@ export default function AceptarInvitacionScreen() {
 
     const run = async () => {
       try {
+        console.log("VALIDANDO TOKEN EN FRONT ===>", token);
         const resp = await contactosApi.aceptarInvitacion(token);
 
         // SI LLEGA AQUÍ → TOKEN ES VÁLIDO
         setTokenValido(true);
         setNombre(resp.invitacion?.nombre_contacto || "");
         setEmail(resp.invitacion?.email_contacto || "");
-      } catch {
+      } catch (e) {
+        console.log("ERROR VALIDANDO INVITACIÓN ===>", e);
         setError("Invitación no válida o expirada.");
       } finally {
         setLoading(false);
@@ -81,15 +87,26 @@ export default function AceptarInvitacionScreen() {
         tipo_diabetes: null,
       });
 
+      console.log("RESP REGISTER ===>", resp);
+
+      // id del usuario recién creado (según tu AuthResponse)
+      const contactoUsuarioId =
+        resp.usuario?.id ;
+
+      if (!contactoUsuarioId) {
+        throw new Error("No se obtuvo el id del usuario recién creado");
+      }
+
       // VINCULAR INVITACIÓN A ESTE USUARIO
       await contactosApi.vincularInvitacion({
         token,
-        contacto_usuario_id: resp.usuario.id,
+        contacto_usuario_id: contactoUsuarioId,
       });
 
       // REDIRIGIR
-      router.replace("/");
+      router.replace("/soporte");
     } catch (e: any) {
+      console.log("ERROR REGISTRO/VINCULO ===>", e);
       setFormError(e.message || "No se pudo registrar");
     } finally {
       setSaving(false);

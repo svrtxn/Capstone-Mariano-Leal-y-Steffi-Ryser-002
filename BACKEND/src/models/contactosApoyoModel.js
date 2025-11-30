@@ -1,4 +1,5 @@
-const db = require('../config/mysql');// mysql2/promise
+// src/models/contactosApoyoModel.js
+const db = require("../config/mysql"); // mysql2/promise
 
 module.exports = {
   async crearInvitacion(data) {
@@ -77,7 +78,8 @@ module.exports = {
     const [r] = await db.execute(sql, [prioridad, id]);
     return r;
   },
-    async aceptarInvitacion(token, contacto_usuario_id) {
+
+  async aceptarInvitacion(token, contacto_usuario_id) {
     const sql = `
       UPDATE contactosapoyo 
       SET estado_invitacion = 'aceptada',
@@ -89,11 +91,11 @@ module.exports = {
     return r;
   },
 
-    async verContactos(usuario_id) {
+  async verContactos(usuario_id) {
     const sql = `
       SELECT contacto_id, nombre_contacto, email_contacto, telefono_contacto,
-            tipo_contacto, prioridad, habilitado, estado_invitacion,
-            contacto_usuario_id
+             tipo_contacto, prioridad, habilitado, estado_invitacion,
+             contacto_usuario_id
       FROM contactosapoyo
       WHERE usuario_id = ?
         AND estado_invitacion = 'aceptada'
@@ -101,14 +103,15 @@ module.exports = {
     const [rows] = await db.execute(sql, [usuario_id]);
     return rows;
   },
+
   async eliminarContacto(contacto_id) {
-  const sql = `
-    DELETE FROM contactosapoyo
-    WHERE contacto_id = ?
-  `;
-  const [result] = await db.execute(sql, [contacto_id]);
-  return result;
-},
+    const sql = `
+      DELETE FROM contactosapoyo
+      WHERE contacto_id = ?
+    `;
+    const [result] = await db.execute(sql, [contacto_id]);
+    return result;
+  },
 
   async editarContacto(
     contacto_id,
@@ -137,7 +140,7 @@ module.exports = {
       tipo_contacto,
       prioridad,
       habilitado,
-      contacto_id
+      contacto_id,
     ];
 
     const [r] = await db.execute(sql, params);
@@ -147,8 +150,8 @@ module.exports = {
   async verInvitacionesEnviadas(usuario_id) {
     const sql = `
       SELECT contacto_id, nombre_contacto, email_contacto, telefono_contacto,
-            tipo_contacto, prioridad, habilitado,
-            estado_invitacion, contacto_usuario_id, fecha_creacion
+             tipo_contacto, prioridad, habilitado,
+             estado_invitacion, contacto_usuario_id, fecha_creacion
       FROM contactosapoyo
       WHERE usuario_id = ?
       ORDER BY fecha_creacion DESC
@@ -157,4 +160,21 @@ module.exports = {
     return rows;
   },
 
+  // 🔥 NUEVO: ver pacientes de un contacto de apoyo
+  async verPacientes(contacto_usuario_id) {
+    const sql = `
+      SELECT 
+        c.contacto_id,
+        c.usuario_id,
+        u.nombre      AS nombre_paciente
+      FROM contactosapoyo c
+      JOIN usuarios u ON c.usuario_id = u.usuario_id
+      WHERE c.contacto_usuario_id = ?
+        AND c.estado_invitacion = 'aceptada'
+        AND c.habilitado = 1
+      ORDER BY c.contacto_id ASC
+    `;
+    const [rows] = await db.execute(sql, [contacto_usuario_id]);
+    return rows;
+  },
 };

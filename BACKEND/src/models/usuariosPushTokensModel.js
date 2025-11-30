@@ -1,15 +1,21 @@
+// models/usuariosPushTokensModel.js
 const db = require("../config/mysql");
 
 const TABLA = "usuarios_push_tokens";
 
 module.exports = {
   async guardarToken(usuario_id, expo_token) {
+    // 👇 Ajusta este INSERT según las columnas reales de tu tabla
     const sql = `
-      INSERT INTO ${TABLA} (usuario_id, expo_token)
-      VALUES (?, ?)
+      INSERT INTO ${TABLA} (usuario_id, expo_token, activo)
+      VALUES (?, ?, 1)
+      ON DUPLICATE KEY UPDATE
+        expo_token = VALUES(expo_token),
+        activo = 1
     `;
+
     const [result] = await db.query(sql, [usuario_id, expo_token]);
-    return result.insertId;
+    return result.insertId || 0;
   },
 
   async obtenerTokens(usuario_id) {
@@ -18,7 +24,7 @@ module.exports = {
       WHERE usuario_id = ? AND activo = 1
     `;
     const [rows] = await db.query(sql, [usuario_id]);
-    return rows.map(r => r.expo_token);
+    return rows.map((r) => r.expo_token);
   },
 
   async desactivarToken(expo_token) {
@@ -26,5 +32,5 @@ module.exports = {
       `UPDATE ${TABLA} SET activo = 0 WHERE expo_token = ?`,
       [expo_token]
     );
-  }
+  },
 };

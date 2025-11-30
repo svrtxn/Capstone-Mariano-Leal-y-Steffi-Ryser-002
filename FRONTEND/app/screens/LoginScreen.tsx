@@ -14,8 +14,9 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS } from "../../constants/colors";
-import { authApi, contactosApi } from "../services/api"; // 👈 OJO: sin monitoreoApi
+import { authApi, contactosApi } from "../services/api"; // 👈 sin monitoreoApi
 import { Ionicons } from "@expo/vector-icons";
+import { registerExpoPushToken } from "../services/pushNotifications";
 
 type Props = {
   onLoginSuccess?: (info: { id: number; name: string }) => void;
@@ -66,12 +67,19 @@ export default function LoginScreen({
         name: res.usuario.nombre,
       });
 
-      // 🔥 Sólo decidimos a qué pantalla ir
+      // 🔔 Registrar token de notificaciones en el backend (SIN bloquear el flujo)
+      registerExpoPushToken().catch((err) => {
+        console.warn("Error registrando token push:", err);
+      });
+
+      // 🔀 Decidir si va a Home paciente o Home soporte
       try {
         const pacientes = await contactosApi.misPacientes();
         if (Array.isArray(pacientes) && pacientes.length > 0) {
+          // Tiene pacientes => es contacto de apoyo
           router.replace("/soporte");
         } else {
+          // No tiene pacientes => es paciente principal
           router.replace("/home");
         }
       } catch (err) {
