@@ -105,8 +105,8 @@ POST http://192.168.100.4:3030/niveles-glucosa/ingesta
 Content-Type: application/json
 
 {
-  "usuario_id": 26,
-  "valor_glucosa": 190,
+  "usuario_id": 25,
+  "valor_glucosa": 390,
   "fecha_registro": "2025-01-19T15:30:00Z",
   "metodo_registro": "manual",
   "etiquetado": "ayuno",
@@ -114,12 +114,12 @@ Content-Type: application/json
 }
 
 ###
-PUT http://192.168.100.4:3030/niveles-glucosa/editar/66
+PUT http://192.168.100.4:3030/niveles-glucosa/editar/69
 Content-Type: application/json
 
 {
-  "usuario_id": 26,
-  "valor_glucosa": 240,
+  "usuario_id": 25,
+  "valor_glucosa": 540,
   "unidad": "mg/dL",
   "metodo_registro": "manual",
   "origen_sensor": null,
@@ -129,7 +129,15 @@ Content-Type: application/json
 }
 
 ###
-DELETE http://192.168.100.4:3030/niveles-glucosa/eliminar/65
+DELETE http://192.168.100.4:3030/niveles-glucosa/eliminar/69
+Content-Type: application/json
+
+{
+  "usuarioId": 25
+}
+
+### 
+DELETE http://192.168.100.4:3030/niveles-glucosa/eliminar/todas/68
 Content-Type: application/json
 
 {
@@ -255,6 +263,8 @@ Content-Type: application/json
 ### Eliminar contacto de apoyo
 DELETE http://192.168.100.4:3030/contactos-apoyo/mis-contactos/39
 
+
+
 ### Ver todas mis invitaciones enviadas
 GET http://192.168.100.4:3030/contactos-apoyo/invitaciones/26
 
@@ -282,3 +292,5 @@ Content-Type: application/json
   "notas": "Prueba REST",
   "registrado_por": 1
 }
+
+

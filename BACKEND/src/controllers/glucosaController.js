@@ -29,7 +29,7 @@ exports.registrarGlucosa = async (req, res) => {
       registrado_por = null
     } = req.body || {};
 
-    // validaciones 
+    // Validaciones
     if (!usuario_id || isNaN(Number(valor_glucosa))) {
       return res.status(400).json({ mensaje: "usuario_id y valor_glucosa válidos son obligatorios" });
     }
@@ -43,7 +43,7 @@ exports.registrarGlucosa = async (req, res) => {
       return res.status(400).json({ mensaje: "etiquetado inválido" });
     }
 
-    // guardar en mysql
+    // Guardar en MySQL
     const insertId = await GlucosaModel.crear({
       usuario_id,
       valor_glucosa: Number(valor_glucosa),
@@ -63,45 +63,49 @@ exports.registrarGlucosa = async (req, res) => {
 
     row.fecha_registro = new Date(row.fecha_registro).toISOString();
 
+    // 🟡 NECESARIO PARA BORRAR / ACTUALIZAR EN FIREBASE
+    row.id = insertId;
 
-// GENERAR ALERTAS EN BASE AL REGISTRO
-  let resultadoAlerta = { tipo: "sin_config" };
 
-  const configUsuario = await ConfigModel.obtenerPorUsuario(usuario_id);
+    // ==============================
+    // 🚨 GENERAR ALERTAS
+    // ==============================
+    let resultadoAlerta = { tipo: "sin_config" };
+    const configUsuario = await ConfigModel.obtenerPorUsuario(usuario_id);
 
-  if (configUsuario && configUsuario.notificaciones === 1) {
-    resultadoAlerta = clasificarAlerta(Number(valor_glucosa), configUsuario);
+    if (configUsuario && configUsuario.notificaciones === 1) {
+      resultadoAlerta = clasificarAlerta(Number(valor_glucosa), configUsuario);
 
-    if (resultadoAlerta.tipo !== "verde") {
-      const alertaId = await AlertasModel.crear({
-        usuario_id,
-        tipo_alerta: resultadoAlerta.tipo,
-        valor_disparador: Number(valor_glucosa),
-        comparador: resultadoAlerta.comparador,
-        estado: "activa",
-        canal: "push",
-        prioridad: resultadoAlerta.prioridad,
-        titulo: `Alerta ${resultadoAlerta.tipo.toUpperCase()}`,
-        mensaje: `Tu nivel de glucosa es ${valor_glucosa} mg/dL`
-      });
+      if (resultadoAlerta.tipo !== "verde") {
+        const alertaId = await AlertasModel.crear({
+          usuario_id,
+          tipo_alerta: resultadoAlerta.tipo,
+          valor_disparador: Number(valor_glucosa),
+          comparador: resultadoAlerta.comparador,
+          estado: "activa",
+          canal: "push",
+          prioridad: resultadoAlerta.prioridad,
+          titulo: `Alerta ${resultadoAlerta.tipo.toUpperCase()}`,
+          mensaje: `Tu nivel de glucosa es ${valor_glucosa} mg/dL`
+        });
 
-      // 🚀 Enviar notificación push
-      const pushService = require("../services/pushService");
-      pushService.enviarNotificacion(
-        usuario_id,
-        `Alerta ${resultadoAlerta.tipo.toUpperCase()}`,
-        `Glucosa: ${valor_glucosa} mg/dL`,
-        alertaId
-      );
+        const pushService = require("../services/pushService");
+        pushService.enviarNotificacion(
+          usuario_id,
+          `Alerta ${resultadoAlerta.tipo.toUpperCase()}`,
+          `Glucosa: ${valor_glucosa} mg/dL`,
+          alertaId
+        );
+      }
     }
-  }
 
 
-    // guardar en firebase
+    // ==============================
+    // 🔥 GUARDAR EN FIREBASE
+    // ==============================
     const ref = firebaseDB.db.ref(`niveles_glucosa/${row.usuario_id}`).push();
     await ref.set(row);
 
-    console.log("🚀 ALERTA GENERADA:", resultadoAlerta);
 
     return res.status(201).json({
       ...row,
@@ -116,6 +120,7 @@ exports.registrarGlucosa = async (req, res) => {
     });
   }
 };
+
 
 // obtener glucosa por usuario
 exports.listarPorUsuario = async (req, res) => {
@@ -173,7 +178,10 @@ exports.obtenerUltimaLectura = async (req, res) => {
   }
 };
 
-// eliminar registro de glucosa
+
+// ==============================
+// 🚨 ELIMINAR UNA GLUCOSA (MySQL + Firebase)
+// ==============================
 exports.eliminarGlucosa = async (req, res) => {
   try {
     const { glucosaId } = req.params;
@@ -183,10 +191,23 @@ exports.eliminarGlucosa = async (req, res) => {
       return res.status(400).json({ mensaje: "glucosaId y usuarioId son obligatorios" });
     }
 
+    // MySQL
     const filas = await GlucosaModel.eliminar(glucosaId, usuarioId);
-
     if (filas === 0) {
       return res.status(404).json({ mensaje: "Registro no encontrado o no pertenece al usuario" });
+    }
+
+    // Firebase
+    const ref = firebaseDB.db.ref(`niveles_glucosa/${usuarioId}`);
+    const snapshot = await ref.once("value");
+
+    if (snapshot.exists()) {
+      snapshot.forEach((child) => {
+        const data = child.val();
+        if (Number(data.id) === Number(glucosaId)) {
+          firebaseDB.db.ref(`niveles_glucosa/${usuarioId}/${child.key}`).remove();
+        }
+      });
     }
 
     return res.json({ mensaje: "Registro eliminado correctamente" });
@@ -197,10 +218,15 @@ exports.eliminarGlucosa = async (req, res) => {
   }
 };
 
-// actualizar registro de glucosa
+
+
+// ==============================
+// ✏ ACTUALIZAR GLUCOSA (MySQL + Firebase)
+// ==============================
 exports.actualizarGlucosa = async (req, res) => {
   try {
     const { glucosaId } = req.params;
+
     const {
       usuario_id,
       valor_glucosa,
@@ -226,20 +252,34 @@ exports.actualizarGlucosa = async (req, res) => {
       notas
     };
 
+    // MySQL
     const filas = await GlucosaModel.actualizar(glucosaId, usuario_id, dataActualizacion);
-
     if (filas === 0) {
       return res.status(404).json({ mensaje: "Registro no encontrado o no pertenece al usuario" });
     }
 
     const updated = await GlucosaModel.obtenerPorId(glucosaId);
+    updated.fecha_registro = new Date(updated.fecha_registro).toISOString();
+
+
+    // Firebase
+    const ref = firebaseDB.db.ref(`niveles_glucosa/${usuario_id}`);
+    const snapshot = await ref.once("value");
+
+    if (snapshot.exists()) {
+      snapshot.forEach((child) => {
+        const data = child.val();
+
+        if (Number(data.id) === Number(glucosaId)) {
+          firebaseDB.db.ref(`niveles_glucosa/${usuario_id}/${child.key}`).update(updated);
+        }
+      });
+    }
+
 
     return res.json({
       mensaje: "Registro actualizado correctamente",
-      lectura: {
-        ...updated,
-        fecha_registro: new Date(updated.fecha_registro).toISOString()
-      }
+      lectura: updated
     });
 
   } catch (error) {
@@ -248,6 +288,11 @@ exports.actualizarGlucosa = async (req, res) => {
   }
 };
 
+
+
+// ==============================
+// 🗑 ELIMINAR TODAS LAS GLUCOSAS
+// ==============================
 exports.eliminarTodasLasGlucosas = async (req, res) => {
   try {
     const { usuarioId } = req.body;
@@ -256,7 +301,11 @@ exports.eliminarTodasLasGlucosas = async (req, res) => {
       return res.status(400).json({ mensaje: "usuarioId es obligatorio" });
     }
 
+    // MySQL
     const filas = await GlucosaModel.eliminarTodas(usuarioId);
+
+    // Firebase
+    await firebaseDB.db.ref(`niveles_glucosa/${usuarioId}`).remove();
 
     return res.json({
       mensaje: "Registros eliminados correctamente",
@@ -268,4 +317,3 @@ exports.eliminarTodasLasGlucosas = async (req, res) => {
     res.status(500).json({ mensaje: "Error eliminando glucosas", error: error.message });
   }
 };
-
