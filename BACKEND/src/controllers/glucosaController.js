@@ -223,6 +223,9 @@ exports.eliminarGlucosa = async (req, res) => {
 // ==============================
 // ✏ ACTUALIZAR GLUCOSA (MySQL + Firebase)
 // ==============================
+// ==============================
+// ✏ ACTUALIZAR GLUCOSA (MySQL + Firebase)
+// ==============================
 exports.actualizarGlucosa = async (req, res) => {
   try {
     const { glucosaId } = req.params;
@@ -242,12 +245,23 @@ exports.actualizarGlucosa = async (req, res) => {
       return res.status(400).json({ mensaje: "usuario_id es obligatorio" });
     }
 
+    // 🔥 Normalizamos fecha_registro a objeto Date (como en crear)
+    let fechaParaMysql = null;
+    if (fecha_registro) {
+      const d = new Date(fecha_registro);
+      if (isNaN(d.getTime())) {
+        return res.status(400).json({ mensaje: "fecha_registro inválida" });
+      }
+      fechaParaMysql = d;
+    }
+
     const dataActualizacion = {
       valor_glucosa,
       unidad,
       metodo_registro,
       origen_sensor,
-      fecha_registro,
+      // si no mandas fecha_registro desde el front, usamos la actual
+      fecha_registro: fechaParaMysql || new Date(),
       etiquetado,
       notas
     };
@@ -260,7 +274,6 @@ exports.actualizarGlucosa = async (req, res) => {
 
     const updated = await GlucosaModel.obtenerPorId(glucosaId);
     updated.fecha_registro = new Date(updated.fecha_registro).toISOString();
-
 
     // Firebase
     const ref = firebaseDB.db.ref(`niveles_glucosa/${usuario_id}`);
@@ -276,7 +289,6 @@ exports.actualizarGlucosa = async (req, res) => {
       });
     }
 
-
     return res.json({
       mensaje: "Registro actualizado correctamente",
       lectura: updated
@@ -287,8 +299,6 @@ exports.actualizarGlucosa = async (req, res) => {
     res.status(500).json({ mensaje: "Error actualizando glucosa", error: error.message });
   }
 };
-
-
 
 // ==============================
 // 🗑 ELIMINAR TODAS LAS GLUCOSAS

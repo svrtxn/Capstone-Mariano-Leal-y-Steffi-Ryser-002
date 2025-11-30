@@ -11,6 +11,8 @@ import {
   Modal,
   Alert,
   Platform,
+  ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -33,7 +35,6 @@ type Row = {
   metodo_registro?: "manual" | "sensor";
   origen_sensor?: string | null;
   fecha_registro: string;
-  // etiquetado ya no se muestra, pero lo dejamos por compatibilidad
   etiquetado?: "antes_comida" | "despues_comida" | "ayuno" | "otro" | null;
   notas?: string | null;
 };
@@ -69,7 +70,6 @@ export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  // Params si viene desde SoporteHomeScreen (modo apoyo)
   const params = useLocalSearchParams<{
     pacienteId?: string;
     pacienteName?: string;
@@ -85,18 +85,27 @@ export default function HistoryScreen() {
   const [loading, setLoading] = useState(false);
   const [windowSel, setWindowSel] = useState<TimeWindow>("todo");
 
-  // Modal de notas
+  // Modal notas
   const [notesModalVisible, setNotesModalVisible] = useState(false);
   const [notesModalContent, setNotesModalContent] = useState<string>("");
 
-  // estados de acciones
+  // Export / borrar todo
   const [exporting, setExporting] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+
+  // Borrar una
+  const [deletingOneId, setDeletingOneId] = useState<number | null>(null);
+
+  // Modal editar
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editRow, setEditRow] = useState<Row | null>(null);
+  const [editValor, setEditValor] = useState("");
+  const [editNotas, setEditNotas] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      // Si hay pacienteId en params (modo apoyo), se filtra por ese paciente
       const data = await glucoseApi.listByUser(pacienteIdParam);
 
       const mapped = (Array.isArray(data) ? data : [])
@@ -136,12 +145,10 @@ export default function HistoryScreen() {
         ? 12 * 3600 * 1000
         : windowSel === "24h"
         ? 24 * 3600 * 1000
-        : 7 * 24 * 3600 * 1000; // 7d
+        : 7 * 24 * 3600 * 1000;
     const from = now - ms;
     return rows.filter((r) => parseTsSafe(r.fecha_registro) >= from);
   }, [rows, windowSel]);
-
-  // ====== Acciones ======
 
   const openNotesModal = (notes: string | null | undefined) => {
     if (!notes) return;
@@ -149,7 +156,11 @@ export default function HistoryScreen() {
     setNotesModalVisible(true);
   };
 
-  // ✅ Exportar PDF real (el amigo de apoyo NO puede exportar)
+  const titleText = pacienteNameFromParams
+    ? `Historial de ${pacienteNameFromParams}`
+    : "Historial de Glucosa";
+
+  // ====== PDF ======
   const handleExportPdf = async () => {
     if (isSupportMode || !filtered.length || exporting) return;
 
@@ -203,9 +214,7 @@ export default function HistoryScreen() {
         <head>
           <meta charset="utf-8" />
           <style>
-            @page { 
-              margin: 20mm; 
-            }
+            @page { margin: 20mm; }
             body {
               font-family: Arial, sans-serif;
               font-size: 11px;
@@ -306,27 +315,57 @@ export default function HistoryScreen() {
     }
   };
 
+  // ====== borrar TODO ======
   const handleDeleteHistory = () => {
-    if (isSupportMode || !filtered.length || deleting) return;
+    if (isSupportMode || !filtered.length || deletingAll) return;
 
+    // 🌐 En web usamos window.confirm porque Alert.alert a veces no se ve
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const ok = window.confirm(
+        "¿Seguro que deseas borrar todo el historial de glucosa? Esta acción no se puede deshacer."
+      );
+      if (!ok) return;
+
+      (async () => {
+        try {
+          setDeletingAll(true);
+          console.log("➡ [WEB] deleteAllByUser()");
+          await glucoseApi.deleteAllByUser();
+          await load();
+        } catch (e: any) {
+          console.error("Error borrando historial:", e?.message);
+          alert("No se pudo borrar el historial. Intenta nuevamente.");
+        } finally {
+          setDeletingAll(false);
+        }
+      })();
+
+      return;
+    }
+
+    // 📱 En native usamos Alert.alert
     Alert.alert(
       "Borrar historial",
       "¿Seguro que deseas borrar todo el historial de glucosa? Esta acción no se puede deshacer.",
       [
         { text: "Cancelar", style: "cancel" },
         {
-          text: "Borrar",
+          text: "Borrar todo",
           style: "destructive",
           onPress: async () => {
             try {
-              setDeleting(true);
-              // TODO backend real
+              setDeletingAll(true);
+              console.log("➡ [NATIVE] deleteAllByUser()");
+              await glucoseApi.deleteAllByUser();
+              await load();
+            } catch (e: any) {
+              console.error("Error borrando historial:", e?.message);
               Alert.alert(
-                "Borrar historial",
-                "Conecta aquí tu endpoint del backend para eliminar los registros."
+                "Error",
+                "No se pudo borrar el historial. Intenta nuevamente."
               );
             } finally {
-              setDeleting(false);
+              setDeletingAll(false);
             }
           },
         },
@@ -334,9 +373,115 @@ export default function HistoryScreen() {
     );
   };
 
-  const titleText = pacienteNameFromParams
-    ? `Historial de ${pacienteNameFromParams}`
-    : "Historial de Glucosa";
+  // ====== borrar UNA ======
+  const handleDeleteOne = (row: Row) => {
+    if (isSupportMode || !row.glucosa_id || deletingOneId) return;
+
+    // 🌐 En web usamos window.confirm
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const ok = window.confirm(
+        "¿Seguro que deseas eliminar esta medición de glucosa?"
+      );
+      if (!ok) return;
+
+      (async () => {
+        try {
+          setDeletingOneId(row.glucosa_id!);
+          console.log("➡ [WEB] deleteOne(", row.glucosa_id, ")");
+          await glucoseApi.deleteOne(row.glucosa_id!);
+          await load();
+        } catch (e: any) {
+          console.error("Error eliminando registro:", e?.message);
+          alert("No se pudo eliminar el registro. Intenta nuevamente.");
+        } finally {
+          setDeletingOneId(null);
+        }
+      })();
+
+      return;
+    }
+
+    // 📱 En native usamos Alert.alert
+    Alert.alert(
+      "Eliminar registro",
+      "¿Seguro que deseas eliminar esta medición de glucosa?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setDeletingOneId(row.glucosa_id!);
+              console.log("➡ [NATIVE] deleteOne(", row.glucosa_id, ")");
+              await glucoseApi.deleteOne(row.glucosa_id!);
+              await load();
+            } catch (e: any) {
+              console.error("Error eliminando registro:", e?.message);
+              Alert.alert(
+                "Error",
+                "No se pudo eliminar el registro. Intenta nuevamente."
+              );
+            } finally {
+              setDeletingOneId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // ====== editar ======
+  const openEditModal = (row: Row) => {
+    if (isSupportMode || !row.glucosa_id) return;
+    setEditRow(row);
+    setEditValor(String(row.valor_glucosa));
+    setEditNotas(row.notas ?? "");
+    setEditModalVisible(true);
+  };
+
+  const closeEditModal = () => {
+    if (savingEdit) return;
+    setEditModalVisible(false);
+    setEditRow(null);
+    setEditValor("");
+    setEditNotas("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editRow || !editRow.glucosa_id) return;
+
+    const valorNum = Number(String(editValor).replace(",", "."));
+    if (!Number.isFinite(valorNum)) {
+      Alert.alert("Valor inválido", "Ingresa un valor numérico válido.");
+      return;
+    }
+
+    try {
+      setSavingEdit(true);
+
+      await glucoseApi.update(editRow.glucosa_id, {
+        valor_glucosa: valorNum,
+        unidad: editRow.unidad || "mg/dL",
+        metodo_registro: editRow.metodo_registro || "manual",
+        origen_sensor: editRow.origen_sensor ?? null,
+        fecha_registro: editRow.fecha_registro,
+        etiquetado: editRow.etiquetado ?? null,
+        notas: editNotas.trim() ? editNotas.trim() : null,
+      });
+
+      await load();
+      closeEditModal();
+    } catch (e: any) {
+      console.error("Error actualizando registro:", e?.message);
+      Alert.alert(
+        "Error",
+        "No se pudo actualizar el registro. Intenta nuevamente."
+      );
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   return (
     <View style={s.screen}>
@@ -390,7 +535,6 @@ export default function HistoryScreen() {
           })}
         </View>
 
-        {/* Botones de acción (solo dueño) */}
         <View style={s.actionsRight}>
           <TouchableOpacity
             onPress={handleExportPdf}
@@ -401,59 +545,73 @@ export default function HistoryScreen() {
               (isSupportMode || !filtered.length) && s.actionBtnDisabled,
             ]}
           >
-            <Ionicons
-              name="document-outline"
-              size={16}
-              color={
-                isSupportMode || !filtered.length ? "#9ca3af" : COLORS.teal
-              }
-            />
-            <Text
-              style={[
-                s.actionBtnText,
-                (isSupportMode || !filtered.length) &&
-                  s.actionBtnTextDisabled,
-              ]}
-            >
-              PDF
-            </Text>
+            {exporting ? (
+              <ActivityIndicator size="small" />
+            ) : (
+              <>
+                <Ionicons
+                  name="document-outline"
+                  size={16}
+                  color={
+                    isSupportMode || !filtered.length ? "#9ca3af" : COLORS.teal
+                  }
+                />
+                <Text
+                  style={[
+                    s.actionBtnText,
+                    (isSupportMode || !filtered.length) &&
+                      s.actionBtnTextDisabled,
+                  ]}
+                >
+                  PDF
+                </Text>
+              </>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleDeleteHistory}
             activeOpacity={isSupportMode ? 1 : 0.8}
-            disabled={isSupportMode || deleting || !filtered.length}
+            disabled={isSupportMode || deletingAll || !filtered.length}
             style={[
               s.actionBtn,
               (isSupportMode || !filtered.length) && s.actionBtnDisabled,
             ]}
           >
-            <Ionicons
-              name="trash-outline"
-              size={16}
-              color={
-                isSupportMode || !filtered.length ? "#9ca3af" : "#b91c1c"
-              }
-            />
-            <Text
-              style={[
-                s.actionBtnText,
-                (isSupportMode || !filtered.length) &&
-                  s.actionBtnTextDisabled,
-              ]}
-            >
-              Borrar
-            </Text>
+            {deletingAll ? (
+              <ActivityIndicator size="small" />
+            ) : (
+              <>
+                <Ionicons
+                  name="trash-outline"
+                  size={16}
+                  color={
+                    isSupportMode || !filtered.length ? "#9ca3af" : "#b91c1c"
+                  }
+                />
+                <Text
+                  style={[
+                    s.actionBtnText,
+                    (isSupportMode || !filtered.length) &&
+                      s.actionBtnTextDisabled,
+                  ]}
+                >
+                  Borrar
+                </Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Cabecera de la tabla */}
+      {/* Cabecera tabla */}
       <View style={s.tableHeader}>
         <Text style={[s.th, { flex: 1.6 }]}>Fecha</Text>
         <Text style={[s.th, { flex: 0.9 }]}>(mg/dL)</Text>
         <Text style={[s.th, { flex: 0.9 }]}>Método</Text>
-        <Text style={[s.th, { flex: 0.7, textAlign: "center" }]}>Notas</Text>
+        <Text style={[s.th, { flex: 0.9, textAlign: "center" }]}>
+          Notas / Acciones
+        </Text>
       </View>
 
       <FlatList
@@ -472,54 +630,94 @@ export default function HistoryScreen() {
           />
         }
         contentContainerStyle={{ paddingBottom: 24 }}
-        renderItem={({ item }) => (
-          <View style={s.tr}>
-            <Text style={[s.td, { flex: 1.6 }]} numberOfLines={1}>
-              {formatDateTime(item.fecha_registro)}
-            </Text>
-
-            <View style={[s.tdBox, { flex: 0.9 }]}>
-              <Ionicons
-                name="water-outline"
-                size={14}
-                color={levelColor(item.valor_glucosa)}
-              />
-              <Text
-                style={[
-                  s.tdStrong,
-                  { color: levelColor(item.valor_glucosa) },
-                ]}
-              >
-                {item.valor_glucosa}
+        renderItem={({ item }) => {
+          const canEdit = !isSupportMode && typeof item.glucosa_id === "number";
+          return (
+            <View style={s.tr}>
+              <Text style={[s.td, { flex: 1.6 }]} numberOfLines={1}>
+                {formatDateTime(item.fecha_registro)}
               </Text>
-              {/* 🔹 YA NO MOSTRAMOS "mg/dL" AQUÍ */}
-            </View>
 
-            <Text style={[s.td, { flex: 0.9 }]} numberOfLines={1}>
-              {item.metodo_registro === "sensor" ? "Sensor" : "Manual"}
-            </Text>
-
-            <View style={[s.notesCell, { flex: 0.7 }]}>
-              {item.notas ? (
-                <TouchableOpacity
-                  style={s.notesBtn}
-                  onPress={() => openNotesModal(item.notas)}
-                >
-                  <Text style={s.notesBtnText}>Ver</Text>
-                </TouchableOpacity>
-              ) : (
+              <View style={[s.tdBox, { flex: 0.9 }]}>
+                <Ionicons
+                  name="water-outline"
+                  size={14}
+                  color={levelColor(item.valor_glucosa)}
+                />
                 <Text
                   style={[
-                    s.td,
-                    { fontSize: 12, color: COLORS.sub, textAlign: "center" },
+                    s.tdStrong,
+                    { color: levelColor(item.valor_glucosa) },
                   ]}
                 >
-                  -
+                  {item.valor_glucosa}
                 </Text>
-              )}
+              </View>
+
+              <Text style={[s.td, { flex: 0.9 }]} numberOfLines={1}>
+                {item.metodo_registro === "sensor" ? "Sensor" : "Manual"}
+              </Text>
+
+              <View style={[s.notesCell, { flex: 0.9 }]}>
+                <View style={s.notesActionsRow}>
+                  {item.notas ? (
+                    <TouchableOpacity
+                      style={s.notesBtn}
+                      onPress={() => openNotesModal(item.notas)}
+                    >
+                      <Text style={s.notesBtnText}>Ver</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text
+                      style={[
+                        s.td,
+                        {
+                          fontSize: 12,
+                          color: COLORS.sub,
+                          textAlign: "center",
+                        },
+                      ]}
+                    >
+                      -
+                    </Text>
+                  )}
+
+                  {canEdit && (
+                    <>
+                      <TouchableOpacity
+                        style={s.iconCircle}
+                        onPress={() => openEditModal(item)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons
+                          name="create-outline"
+                          size={14}
+                          color={COLORS.teal}
+                        />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={s.iconCircle}
+                        onPress={() => handleDeleteOne(item)}
+                        activeOpacity={0.8}
+                      >
+                        {deletingOneId === item.glucosa_id ? (
+                          <ActivityIndicator size="small" />
+                        ) : (
+                          <Ionicons
+                            name="trash-outline"
+                            size={14}
+                            color="#b91c1c"
+                          />
+                        )}
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              </View>
             </View>
-          </View>
-        )}
+          );
+        }}
         ListEmptyComponent={
           !loading ? (
             <View style={s.emptyBox}>
@@ -532,7 +730,7 @@ export default function HistoryScreen() {
         }
       />
 
-      {/* Modal de notas */}
+      {/* Modal notas */}
       <Modal
         visible={notesModalVisible}
         transparent
@@ -550,6 +748,68 @@ export default function HistoryScreen() {
             >
               <Text style={s.modalCloseTxt}>Cerrar</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal editar */}
+      <Modal
+        visible={editModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeEditModal}
+      >
+        <View style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <Text style={s.modalTitle}>Editar lectura</Text>
+            {editRow && (
+              <>
+                <Text style={s.modalSub}>
+                  {formatDateTime(editRow.fecha_registro)}
+                </Text>
+
+                <Text style={s.editLabel}>Valor (mg/dL)</Text>
+                <TextInput
+                  value={editValor}
+                  onChangeText={setEditValor}
+                  keyboardType="numeric"
+                  style={s.editInput}
+                />
+
+                <Text style={[s.editLabel, { marginTop: 12 }]}>Notas</Text>
+                <TextInput
+                  value={editNotas}
+                  onChangeText={setEditNotas}
+                  multiline
+                  numberOfLines={3}
+                  style={[s.editInput, { height: 80, textAlignVertical: "top" }]}
+                  placeholder="Opcional"
+                />
+
+                <View style={s.editActions}>
+                  <TouchableOpacity
+                    style={[s.modalBtn, s.modalBtnCancel]}
+                    onPress={closeEditModal}
+                    disabled={savingEdit}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={s.modalBtnCancelText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[s.modalBtn, s.modalBtnSave]}
+                    onPress={handleSaveEdit}
+                    disabled={savingEdit}
+                    activeOpacity={0.8}
+                  >
+                    {savingEdit ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={s.modalBtnSaveText}>Guardar</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -575,7 +835,13 @@ const s = StyleSheet.create({
     fontSize: 12,
   },
 
-  backButton: { position: "absolute", left: 16, top: 16, zIndex: 10, padding: 8 },
+  backButton: {
+    position: "absolute",
+    left: 16,
+    top: 16,
+    zIndex: 10,
+    padding: 8,
+  },
   backButtonText: { color: COLORS.white, fontSize: 24, fontWeight: "600" },
 
   filtersRow: {
@@ -657,13 +923,17 @@ const s = StyleSheet.create({
   },
   td: { color: COLORS.text, fontSize: 13 },
   tdStrong: { marginLeft: 6, fontSize: 14, fontWeight: "800" },
-  tdUnit: { fontSize: 12, color: COLORS.sub }, // ya no se usa, pero lo dejamos
   tdBox: { flexDirection: "row", alignItems: "center" },
 
   notesCell: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+  },
+  notesActionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   notesBtn: {
     paddingHorizontal: 8,
@@ -677,6 +947,16 @@ const s = StyleSheet.create({
     fontSize: 11,
     color: COLORS.teal,
     fontWeight: "600",
+  },
+  iconCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f9fafb",
   },
 
   emptyBox: {
@@ -714,7 +994,12 @@ const s = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: COLORS.text,
-    marginBottom: 10,
+    marginBottom: 8,
+  },
+  modalSub: {
+    fontSize: 13,
+    color: COLORS.sub,
+    marginBottom: 12,
   },
   modalBody: {
     fontSize: 14,
@@ -732,5 +1017,47 @@ const s = StyleSheet.create({
     color: COLORS.white,
     fontWeight: "600",
     fontSize: 13,
+  },
+
+  editLabel: {
+    fontSize: 13,
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  editInput: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+    backgroundColor: "#F9FAFB",
+  },
+  editActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+    marginTop: 16,
+  },
+  modalBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  modalBtnCancel: {
+    backgroundColor: "#E5E7EB",
+  },
+  modalBtnCancelText: {
+    fontSize: 14,
+    color: COLORS.text,
+    fontWeight: "500",
+  },
+  modalBtnSave: {
+    backgroundColor: COLORS.teal,
+  },
+  modalBtnSaveText: {
+    fontSize: 14,
+    color: "#fff",
+    fontWeight: "600",
   },
 });

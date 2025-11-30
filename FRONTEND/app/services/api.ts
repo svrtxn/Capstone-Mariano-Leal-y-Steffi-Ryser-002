@@ -8,6 +8,10 @@ import {
   setCurrentUserName,
 } from "./session";
 
+/* =========================
+   HELPERS HTTP GENÉRICOS
+   ========================= */
+
 async function postJSON<T>(path: string, body: any): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
@@ -50,6 +54,46 @@ async function getJSON<T>(path: string): Promise<T> {
   return data as T;
 }
 
+async function putJSON<T>(path: string, body: any): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  let data: any = null;
+  try {
+    data = await res.json();
+  } catch {}
+
+  if (!res.ok) {
+    const fallback = (data && (data.mensaje || data.error)) || "";
+    const txt = fallback || (await res.text().catch(() => ""));
+    throw new Error(`HTTP ${res.status} ${res.statusText} - ${txt}`);
+  }
+  return data as T;
+}
+
+async function deleteJSON<T>(path: string, body?: any): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  let data: any = null;
+  try {
+    data = await res.json();
+  } catch {}
+
+  if (!res.ok) {
+    const fallback = (data && (data.mensaje || data.error)) || "";
+    const txt = fallback || (await res.text().catch(() => ""));
+    throw new Error(`HTTP ${res.status} ${res.statusText} - ${txt}`);
+  }
+  return data as T;
+}
+
 // Extrae usuario.id de la respuesta del backend
 function extractUserIdFromAuth(resp: AuthResponse): number {
   const id = resp?.usuario?.id;
@@ -59,11 +103,15 @@ function extractUserIdFromAuth(resp: AuthResponse): number {
   return id;
 }
 
-// ================== API GLUCOSA ==================
+/* =========================
+   API GLUCOSA
+   ========================= */
+
 export const glucoseApi = {
   async create(payload: GlucoseCreateRequest) {
     const uid = await getCurrentUserId();
-    if (!uid) throw new Error("No hay usuario en sesión para registrar glucosa.");
+    if (!uid)
+      throw new Error("No hay usuario en sesión para registrar glucosa.");
 
     const valor = Number(payload.valor_glucosa);
     if (!Number.isFinite(valor)) {
@@ -84,7 +132,60 @@ export const glucoseApi = {
     if (!uid) throw new Error("No hay usuario en sesión.");
     return getJSON<Glucose[]>(`/niveles-glucosa?usuarioId=${uid}`);
   },
+
+  // 🗑 eliminar UNA lectura (respeta tu back: body.usuarioId)
+  async deleteOne(glucosaId: number) {
+    const uid = await getCurrentUserId();
+    if (!uid) throw new Error("No hay usuario en sesión.");
+
+    return deleteJSON<{ mensaje?: string }>(
+      `/niveles-glucosa/eliminar/${glucosaId}`,
+      { usuarioId: uid }
+    );
+  },
+
+  // 🗑 eliminar TODAS las lecturas de un usuario (back espera usuarioId en body)
+  async deleteAllByUser() {
+    const uid = await getCurrentUserId();
+    if (!uid) throw new Error("No hay usuario en sesión.");
+
+    return deleteJSON<{ mensaje?: string; eliminados?: number }>(
+      `/niveles-glucosa/eliminar/todas/${uid}`,
+      { usuarioId: uid }
+    );
+  },
+
+  // ✏ actualizar una lectura
+  async update(
+    glucosaId: number,
+    data: {
+      valor_glucosa: number;
+      unidad: string;
+      metodo_registro: "manual" | "sensor";
+      origen_sensor: string | null;
+      fecha_registro: string;
+      etiquetado: "antes_comida" | "despues_comida" | "ayuno" | "otro" | null;
+      notas: string | null;
+    }
+  ) {
+    const uid = await getCurrentUserId();
+    if (!uid) throw new Error("No hay usuario en sesión.");
+
+    const body = {
+      usuario_id: uid,
+      ...data,
+    };
+
+    return putJSON<{
+      mensaje: string;
+      lectura: Glucose;
+    }>(`/niveles-glucosa/editar/${glucosaId}`, body);
+  },
 };
+
+/* =========================
+   API AUTH
+   ========================= */
 
 export const authApi = {
   async login(payload: LoginRequest) {
@@ -141,7 +242,10 @@ export const authApi = {
   },
 };
 
-// ================== API CONTACTOS APOYO ==================
+/* =========================
+   API CONTACTOS APOYO
+   ========================= */
+
 export const contactosApi = {
   // 1) Enviar invitación (AmigosScreen)
   async invitarContacto(data: {
@@ -183,7 +287,7 @@ export const contactosApi = {
     }>(`/contactos-apoyo/aceptar/${token}`, {});
   },
 
-  // 3) Vincular invitación al usuario recién registrado (para usar en Register)
+  // 3) Vincular invitación al usuario recién registrado
   async vincularInvitacion(data: { token: string; contacto_usuario_id: number }) {
     return postJSON<{ msg: string }>("/contactos-apoyo/vincular", data);
   },
@@ -211,9 +315,103 @@ export const contactosApi = {
       `/contactos-apoyo/verificar/${paciente_id}?contacto_usuario_id=${contacto_usuario_id}`
     );
   },
+
+  // 6) Ver TODAS las invitaciones enviadas por el paciente
+  async listarInvitacionesEnviadas() {
+    const usuario_id = await getCurrentUserId();
+    if (!usuario_id) throw new Error("No hay sesión activa.");
+
+    return getJSON<
+      Array<{
+        contacto_id: number;
+        nombre_contacto: string;
+        email_contacto: string;
+        telefono_contacto: string | null;
+        tipo_contacto: string;
+        prioridad: number;
+        habilitado: number;
+        estado_invitacion: string;
+        contacto_usuario_id: number | null;
+        fecha_creacion: string;
+      }>
+    >(`/contactos-apoyo/invitaciones/${usuario_id}`);
+  },
+
+  // 7) Ver solo los contactos de apoyo aceptados del paciente
+  async listarMisContactos() {
+    const usuario_id = await getCurrentUserId();
+    if (!usuario_id) throw new Error("No hay sesión activa.");
+
+    return getJSON<
+      Array<{
+        contacto_id: number;
+        nombre_contacto: string;
+        email_contacto: string;
+        telefono_contacto: string | null;
+        tipo_contacto: string;
+        prioridad: number;
+        habilitado: number;
+        estado_invitacion: string;
+        contacto_usuario_id: number | null;
+      }>
+    >(`/contactos-apoyo/mis-contactos/${usuario_id}`);
+  },
+
+  // 8) Eliminar un contacto de apoyo (aceptado)
+  async eliminarContacto(contacto_id: number) {
+    const res = await fetch(
+      `${BASE_URL}/contactos-apoyo/mis-contactos/${contacto_id}`,
+      {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+
+    let data: any = null;
+    try {
+      data = await res.json();
+    } catch {}
+
+    if (!res.ok) {
+      const fallback =
+        (data && (data.mensaje || data.error || data.msg)) || "";
+      const txt = fallback || (await res.text().catch(() => ""));
+      throw new Error(`HTTP ${res.status} ${res.statusText} - ${txt}`);
+    }
+
+    return data as { msg?: string };
+  },
+
+  // 9) Eliminar una invitación enviada (pendiente / rechazada)
+  async eliminarInvitacion(contacto_id: number) {
+    const res = await fetch(
+      `${BASE_URL}/contactos-apoyo/invitaciones/${contacto_id}`,
+      {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+
+    let data: any = null;
+    try {
+      data = await res.json();
+    } catch {}
+
+    if (!res.ok) {
+      const fallback =
+        (data && (data.mensaje || data.error || data.msg)) || "";
+      const txt = fallback || (await res.text().catch(() => ""));
+      throw new Error(`HTTP ${res.status} ${res.statusText} - ${txt}`);
+    }
+
+    return data as { msg?: string };
+  },
 };
-// ================== API MONITOREO SENSOR ==================
-// ================== API MONITOREO SENSOR ==================
+
+/* =========================
+   API MONITOREO SENSOR
+   ========================= */
+
 export const monitoreoApi = {
   async iniciar() {
     const uid = await getCurrentUserId();
