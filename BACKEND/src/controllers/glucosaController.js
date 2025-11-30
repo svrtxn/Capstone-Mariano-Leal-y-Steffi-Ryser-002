@@ -248,4 +248,24 @@ exports.actualizarGlucosa = async (req, res) => {
   }
 };
 
+exports.eliminarTodasLasGlucosas = async (req, res) => {
+  try {
+    const { usuarioId } = req.body;
+
+    if (!usuarioId) {
+      return res.status(400).json({ mensaje: "usuarioId es obligatorio" });
+    }
+
+    const filas = await GlucosaModel.eliminarTodas(usuarioId);
+
+    return res.json({
+      mensaje: "Registros eliminados correctamente",
+      eliminados: filas
+    });
+
+  } catch (error) {
+    console.error("❌ Error eliminando glucosas:", error);
+    res.status(500).json({ mensaje: "Error eliminando glucosas", error: error.message });
+  }
+};
 

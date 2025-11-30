@@ -74,6 +74,16 @@ const GlucosaModel = {
   return result.affectedRows;
 },
 
+// Eliminar TODAS las lecturas de glucosa de un usuario
+async eliminarTodas(usuario_id) {
+  const [result] = await db.query(
+    `DELETE FROM ${TABLA} WHERE usuario_id = ?`,
+    [usuario_id]
+  );
+  return result.affectedRows; // cantidad de filas eliminadas
+}
+,
+
   // Actualizar lectura de glucosa
 async actualizar(glucosa_id, usuario_id, data) {
   const {
