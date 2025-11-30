@@ -63,7 +63,7 @@ module.exports = {
               </p>
 
               <div style="text-align:center; margin:30px 0;">
-                <a href="http://localhost:8080/contactos-apoyo/aceptar/${token}"
+                <a href="http://192.168.100.4:3030/contactos-apoyo/aceptar/${token}"
                   style="
                     background:#3DB7C4;
                     color:white;
