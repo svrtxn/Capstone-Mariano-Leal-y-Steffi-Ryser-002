@@ -10,16 +10,12 @@ module.exports = {
     comparador,
     prioridad,
     estado = "activa",
-    canal = "push",
-    titulo,
-    mensaje
+    canal = "push"
   }) {
-    const fecha_creacion = new Date();
-
     const sql = `
       INSERT INTO ${TABLA}
-      (usuario_id, tipo_alerta, valor_disparador, comparador, estado, canal, prioridad, titulo, mensaje, fecha_creacion)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (usuario_id, tipo_alerta, valor_disparador, comparador, estado, canal, prioridad)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
 
     const [result] = await db.query(sql, [
@@ -29,10 +25,7 @@ module.exports = {
       comparador,
       estado,
       canal,
-      prioridad,
-      titulo,
-      mensaje,
-      fecha_creacion
+      prioridad
     ]);
 
     return result.insertId;

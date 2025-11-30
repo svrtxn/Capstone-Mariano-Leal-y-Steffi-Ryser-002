@@ -5,7 +5,7 @@ const controller = require("../controllers/contactosApoyoController");
 
 router.get("/aceptar/:token", (req, res) => {
   const { token } = req.params;
-  return res.redirect(`http://localhost:8081/aceptar-invitacion/${token}`);
+  return res.redirect(`http:/192.168.100.4:3030/aceptar-invitacion/${token}`);
 });
 
 router.post("/invitar", controller.invitarContacto);

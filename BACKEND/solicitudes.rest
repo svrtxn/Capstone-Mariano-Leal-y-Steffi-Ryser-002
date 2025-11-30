@@ -26,7 +26,7 @@ Content-Type: application/json
 
 {
   "tieneSensor": false,
-  "correo": "usuario.sin.sensor@gmail.com",
+  "correo": "usuarioprueba@gmail.com",
   "contrasena": "Comelonmas1.",
   "nombre": "Usuario",
   "apellido": "Normal",
@@ -50,17 +50,17 @@ Content-Type: application/json
 ###
 
 ### Solicitar Restablecer Contraseña
-POST http://localhost:8080/usuarios/solicitar-restablecer
+POST http://192.168.100.4:3030/usuarios/solicitar-restablecer
 Content-Type: application/json
 
 {
-  "correo": "itsuki.maki@gmail.com"
+  "correo": "juana.gomez@gmail.com"
 }
 
 ###
 
 ### Restablecer Contraseña
-POST http://localhost:8080/usuarios/restablecer-contrasena
+POST http://192.168.100.4:3030/usuarios/restablecer-contrasena
 Content-Type: application/json
 
 {
@@ -76,7 +76,7 @@ Content-Type: application/json
 ##################################################
 
 ### Configurar usuario
-POST http://192.168.100.4:3030/config/26
+POST http://192.168.100.4:3030/config/32
 Content-Type: application/json
 
 {
@@ -105,7 +105,7 @@ POST http://192.168.100.4:3030/niveles-glucosa/ingesta
 Content-Type: application/json
 
 {
-  "usuario_id": 25,
+  "usuario_id": 32,
   "valor_glucosa": 390,
   "fecha_registro": "2025-01-19T15:30:00Z",
   "metodo_registro": "manual",
@@ -148,11 +148,11 @@ Content-Type: application/json
 ###
 
 ### Iniciar monitoreo REAL
-POST http://localhost:8080/niveles-glucosa/monitoreo/iniciar
+POST http://192.168.100.4:3030/niveles-glucosa/monitoreo/iniciar
 Content-Type: application/json
 
 {
-  "usuarioId": 10,
+  "usuarioId": 24,
   "intervalo": 300000
 }
 

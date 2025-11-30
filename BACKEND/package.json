@@ -15,6 +15,7 @@
     "@diakem/libre-link-up-api-client": "file:libre-link-up-api-client",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
+    "expo-server-sdk": "^4.0.0",
     "express": "^5.1.0",
     "firebase-admin": "^13.5.0",
     "libre-link-unofficial-api": "^1.0.0-alpha.7",
