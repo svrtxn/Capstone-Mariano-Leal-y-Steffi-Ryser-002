@@ -45,15 +45,27 @@ async function guardarLecturaSensor(lectura, usuarioId) {
       console.log("Tipo alerta:", resultadoAlerta.tipo);
 
       if (resultadoAlerta.tipo !== "verde") {
-        await AlertasModel.crear({
+        const alertaId = await AlertasModel.crear({
           usuario_id: usuarioId,
           tipo_alerta: resultadoAlerta.tipo,
           valor_disparador: valor_glucosa,
           comparador: resultadoAlerta.comparador,
           estado: "activa",
           canal: "push",
-          prioridad: resultadoAlerta.prioridad
+          prioridad: resultadoAlerta.prioridad,
+          titulo: `Alerta ${resultadoAlerta.tipo.toUpperCase()}`,
+          mensaje: `Glucosa detectada: ${valor_glucosa} mg/dL`
         });
+
+        // Enviar push
+        const pushService = require("../services/pushService");
+        pushService.enviarNotificacion(
+          usuarioId,
+          `Alerta ${resultadoAlerta.tipo.toUpperCase()}`,
+          `Glucosa: ${valor_glucosa} mg/dL`,
+          alertaId
+        );
+
       }
     }
 

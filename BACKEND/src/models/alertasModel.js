@@ -1,73 +1,54 @@
-const db = require('../config/mysql');
+const db = require("../config/mysql");
 
-const TABLA = 'alertas';
+const TABLA = "alertas";
 
 module.exports = {
-  /**
-   * Crear una alerta completa
-   */
   async crear({
     usuario_id,
     tipo_alerta,
     valor_disparador,
     comparador,
     prioridad,
-    estado = 'activa',
-    canal = 'push',
-    activo_desde = null,
-    activo_hasta = null
+    estado = "activa",
+    canal = "push",
+    titulo,
+    mensaje
   }) {
-    try {
-      const fecha_creacion = new Date();
+    const fecha_creacion = new Date();
 
-      const sql = `
-        INSERT INTO ${TABLA}
-        (usuario_id, tipo_alerta, valor_disparador, comparador, estado, canal, prioridad, fecha_creacion, activo_desde, activo_hasta)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
+    const sql = `
+      INSERT INTO ${TABLA}
+      (usuario_id, tipo_alerta, valor_disparador, comparador, estado, canal, prioridad, titulo, mensaje, fecha_creacion)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
 
-      const [result] = await db.query(sql, [
-        usuario_id,
-        tipo_alerta,
-        valor_disparador,
-        comparador,
-        estado,
-        canal,
-        prioridad,
-        fecha_creacion,
-        activo_desde,
-        activo_hasta
-      ]);
+    const [result] = await db.query(sql, [
+      usuario_id,
+      tipo_alerta,
+      valor_disparador,
+      comparador,
+      estado,
+      canal,
+      prioridad,
+      titulo,
+      mensaje,
+      fecha_creacion
+    ]);
 
-      return result.insertId;
-    } catch (error) {
-      console.error("❌ ERROR GUARDANDO ALERTA:", error);
-      throw error;
-    }
+    return result.insertId;
   },
 
-  /**
-   * Obtener por usuario
-   */
-  async obtenerPorUsuario(usuario_id) {
-    const [rows] = await db.query(
-      `SELECT * FROM ${TABLA} WHERE usuario_id = ? ORDER BY fecha_creacion DESC`,
-      [usuario_id]
+  async marcarEnviada(alerta_id) {
+    return db.query(
+      "UPDATE alertas SET estado = 'enviada', fecha_envio = NOW() WHERE alerta_id = ?",
+      [alerta_id]
     );
-    return rows;
   },
 
-  async actualizar(id, datos) {
-  try {
-    const [result] = await db.query(
-      "UPDATE glucosa SET ? WHERE id = ?",
-      [datos, id]
+  async marcarError(alerta_id, error) {
+    return db.query(
+      "UPDATE alertas SET estado = 'error', error_envio = ? WHERE alerta_id = ?",
+      [error, alerta_id]
     );
-    return result;
-  } catch (error) {
-    console.error("❌ ERROR EN GlucosaModel.actualizar:", error);
-    throw error;
   }
-}  
-
 };

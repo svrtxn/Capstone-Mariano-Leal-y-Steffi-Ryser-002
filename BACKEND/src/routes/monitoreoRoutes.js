@@ -7,7 +7,7 @@ const {
   obtenerUltimaLectura,
 } = require('../services/monitoreoGlucosaService');
 
-// Iniciar monitoreo REAL
+
 router.post('/niveles-glucosa/monitoreo/iniciar', async (req, res) => {
   const { usuarioId, intervalo } = req.body;
   try {
@@ -19,7 +19,7 @@ router.post('/niveles-glucosa/monitoreo/iniciar', async (req, res) => {
   }
 });
 
-// Detener monitoreo REAL
+
 router.post('/niveles-glucosa/monitoreo/detener', (req, res) => {
   const { usuarioId } = req.body;
   const resultado = detenerMonitoreoUsuario(usuarioId);

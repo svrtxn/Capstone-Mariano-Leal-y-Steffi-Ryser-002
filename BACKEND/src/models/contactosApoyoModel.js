@@ -77,9 +77,6 @@ module.exports = {
     const [r] = await db.execute(sql, [prioridad, id]);
     return r;
   },
-
-
-
     async aceptarInvitacion(token, contacto_usuario_id) {
     const sql = `
       UPDATE contactosapoyo 
@@ -113,55 +110,51 @@ module.exports = {
   return result;
 },
 
-async editarContacto(
-  contacto_id,
-  nombre_contacto,
-  email_contacto,
-  telefono_contacto,
-  tipo_contacto,
-  prioridad,
-  habilitado
-) {
-  const sql = `
-    UPDATE contactosapoyo
-    SET nombre_contacto = ?,
-        email_contacto = ?,
-        telefono_contacto = ?,
-        tipo_contacto = ?,
-        prioridad = ?,
-        habilitado = ?
-    WHERE contacto_id = ?
-  `;
-
-  const params = [
+  async editarContacto(
+    contacto_id,
     nombre_contacto,
     email_contacto,
     telefono_contacto,
     tipo_contacto,
     prioridad,
-    habilitado,
-    contacto_id
-  ];
+    habilitado
+  ) {
+    const sql = `
+      UPDATE contactosapoyo
+      SET nombre_contacto = ?,
+          email_contacto = ?,
+          telefono_contacto = ?,
+          tipo_contacto = ?,
+          prioridad = ?,
+          habilitado = ?
+      WHERE contacto_id = ?
+    `;
 
-  const [r] = await db.execute(sql, params);
-  return r;
-},
+    const params = [
+      nombre_contacto,
+      email_contacto,
+      telefono_contacto,
+      tipo_contacto,
+      prioridad,
+      habilitado,
+      contacto_id
+    ];
 
-async verInvitacionesEnviadas(usuario_id) {
-  const sql = `
-    SELECT contacto_id, nombre_contacto, email_contacto, telefono_contacto,
-           tipo_contacto, prioridad, habilitado,
-           estado_invitacion, contacto_usuario_id, fecha_creacion
-    FROM contactosapoyo
-    WHERE usuario_id = ?
-    ORDER BY fecha_creacion DESC
-  `;
-  const [rows] = await db.execute(sql, [usuario_id]);
-  return rows;
-},
+    const [r] = await db.execute(sql, params);
+    return r;
+  },
 
-
-
-
+  async verInvitacionesEnviadas(usuario_id) {
+    const sql = `
+      SELECT contacto_id, nombre_contacto, email_contacto, telefono_contacto,
+            tipo_contacto, prioridad, habilitado,
+            estado_invitacion, contacto_usuario_id, fecha_creacion
+      FROM contactosapoyo
+      WHERE usuario_id = ?
+      ORDER BY fecha_creacion DESC
+    `;
+    const [rows] = await db.execute(sql, [usuario_id]);
+    return rows;
+  },
 
 };

@@ -1,4 +1,3 @@
-// src/models/ConfigModel.js
 const db = require('../config/mysql');
 
 const TABLA = 'configuraciones';

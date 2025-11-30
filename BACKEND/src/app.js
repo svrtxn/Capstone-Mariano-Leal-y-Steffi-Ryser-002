@@ -9,12 +9,9 @@ const rutasConfig = require('./routes/configRoutes');
 const rutasMonitoreo = require('./routes/monitoreoRoutes');
 const rutasContactosApoyo = require("./routes/contactosApoyoRoutes");
 
-
-
-// Crear la app de Express
 const app = express();
 
-// Middlewares
+
 app.use(cors());
 app.use(express.json());
 
@@ -25,8 +22,9 @@ app.use('/config', rutasConfig);
 app.use('/', rutasMonitoreo);
 app.use("/contactos-apoyo", rutasContactosApoyo);
 
-
 // Ruta de prueba de salud
 app.get('/api/health', (_, res) => res.json({ ok: true }));
+app.use("/api/notificaciones", require("./src/routes/notificacionesRoutes"));
+
 
 module.exports = app;

@@ -183,11 +183,11 @@ Content-Type: application/json
 ###
 
 ### 2. Redirección GET desde correo (simula clic del usuario)
-GET http://192.168.100.4:3030/contactos-apoyo/aceptar/ad09a414-4793-43de-b519-29d06650782f
+GET http://192.168.100.4:3030/contactos-apoyo/aceptar/75836874-8094-4f1f-a37b-ee6262e0f767
 ###
 
 ### 3. Aceptar invitación (marca como aceptada)
-POST http://192.168.100.4:3030/contactos-apoyo/aceptar/ad09a414-4793-43de-b519-29d06650782f
+POST http://192.168.100.4:3030/contactos-apoyo/aceptar/75836874-8094-4f1f-a37b-ee6262e0f767
 Content-Type: application/json
 
 ###
@@ -198,14 +198,14 @@ Content-Type: application/json
 
 {
   "tieneSensor": false,
-  "correo": "juana.gomez@gmail.com",
+  "correo": "juana.gomez.r@gmail.com",
   "contrasena": "Comelonmas1.",
-  "nombre": "prueba",
+  "nombre": "prueba 2",
   "apellido": "Gomez",
   "fechaNacimiento": "2004-05-25",
   "telefono": "955523789",
   "rol": "amigo",
-  "token_invitacion": "ad09a414-4793-43de-b519-29d06650782f"
+  "token_invitacion": "75836874-8094-4f1f-a37b-ee6262e0f767"
 }
 
 ###
@@ -234,16 +234,9 @@ Content-Type: application/json
 
 ###
 
-### 8. Obtener mis pacientes
-POST http://192.168.100.4:3030/contactos-apoyo/mis-contactos
-Content-Type: application/json
-
-{
-  "usuario_id": 26
-}
+### 8. Obtener mis contactos 
 ###
 GET http://192.168.100.4:3030/contactos-apoyo/mis-contactos/26
-
 
 
 ### Editar contacto de apoyo
@@ -264,3 +257,28 @@ DELETE http://192.168.100.4:3030/contactos-apoyo/mis-contactos/39
 
 ### Ver todas mis invitaciones enviadas
 GET http://192.168.100.4:3030/contactos-apoyo/invitaciones/26
+
+
+### Registrar token expo del usuario (NECESARIO PARA RECIBIR PUSH)
+POST http://192.168.100.4:3030/api/notificaciones/registrar-token
+Content-Type: application/json
+
+{
+  "usuario_id": 25,
+  "expo_push_token": "ExponentPushToken[AQUI-TU-TOKEN]"
+}
+
+### Registrar glucosa manual
+POST http://192.168.100.4:3030/api/glucosa
+Content-Type: application/json
+
+{
+  "usuario_id": 25,
+  "valor_glucosa": 280,
+  "unidad": "mg/dL",
+  "metodo_registro": "manual",
+  "fecha_registro": "2025-01-01T12:00:00.000Z",
+  "etiquetado": "antes_comida",
+  "notas": "Prueba REST",
+  "registrado_por": 1
+}

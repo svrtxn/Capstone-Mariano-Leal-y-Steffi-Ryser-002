@@ -12,10 +12,7 @@ const {
   obtenerUltimaLectura: obtenerUltimaLecturaService
 } = require('../services/monitoreoGlucosaService');
 
-
-// =========================================
-// POST /api/niveles-glucosa/ingesta
-// =========================================
+// registro de glucosa
 exports.registrarGlucosa = async (req, res) => {
   console.log('REQ.BODY:', req.body);
 
@@ -32,9 +29,7 @@ exports.registrarGlucosa = async (req, res) => {
       registrado_por = null
     } = req.body || {};
 
-    // ------------------------------
-    // VALIDACIONES
-    // ------------------------------
+    // validaciones 
     if (!usuario_id || isNaN(Number(valor_glucosa))) {
       return res.status(400).json({ mensaje: "usuario_id y valor_glucosa válidos son obligatorios" });
     }
@@ -48,9 +43,7 @@ exports.registrarGlucosa = async (req, res) => {
       return res.status(400).json({ mensaje: "etiquetado inválido" });
     }
 
-    // ------------------------------
-    // GUARDAR EN MYSQL
-    // ------------------------------
+    // guardar en mysql
     const insertId = await GlucosaModel.crear({
       usuario_id,
       valor_glucosa: Number(valor_glucosa),
@@ -63,7 +56,6 @@ exports.registrarGlucosa = async (req, res) => {
       registrado_por
     });
 
-    // Obtener fila insertada
     const row = await GlucosaModel.obtenerPorId(insertId);
     if (!row) {
       return res.status(500).json({ mensaje: "Error al recuperar el registro insertado" });
@@ -72,9 +64,7 @@ exports.registrarGlucosa = async (req, res) => {
     row.fecha_registro = new Date(row.fecha_registro).toISOString();
 
 
-// =========================================
-// 🚨 HU05 — GENERACIÓN DE ALERTAS
-// =========================================
+// GENERAR ALERTAS EN BASE AL REGISTRO
   let resultadoAlerta = { tipo: "sin_config" };
 
   const configUsuario = await ConfigModel.obtenerPorUsuario(usuario_id);
@@ -83,22 +73,31 @@ exports.registrarGlucosa = async (req, res) => {
     resultadoAlerta = clasificarAlerta(Number(valor_glucosa), configUsuario);
 
     if (resultadoAlerta.tipo !== "verde") {
-      await AlertasModel.crear({
+      const alertaId = await AlertasModel.crear({
         usuario_id,
         tipo_alerta: resultadoAlerta.tipo,
         valor_disparador: Number(valor_glucosa),
         comparador: resultadoAlerta.comparador,
         estado: "activa",
         canal: "push",
-        prioridad: resultadoAlerta.prioridad
+        prioridad: resultadoAlerta.prioridad,
+        titulo: `Alerta ${resultadoAlerta.tipo.toUpperCase()}`,
+        mensaje: `Tu nivel de glucosa es ${valor_glucosa} mg/dL`
       });
+
+      // 🚀 Enviar notificación push
+      const pushService = require("../services/pushService");
+      pushService.enviarNotificacion(
+        usuario_id,
+        `Alerta ${resultadoAlerta.tipo.toUpperCase()}`,
+        `Glucosa: ${valor_glucosa} mg/dL`,
+        alertaId
+      );
     }
   }
 
 
-    // ------------------------------
-    // GUARDA TAMBIÉN EN FIREBASE
-    // ------------------------------
+    // guardar en firebase
     const ref = firebaseDB.db.ref(`niveles_glucosa/${row.usuario_id}`).push();
     await ref.set(row);
 
@@ -118,10 +117,7 @@ exports.registrarGlucosa = async (req, res) => {
   }
 };
 
-
-// =========================================
-// GET /api/niveles-glucosa?usuarioId=1
-// =========================================
+// obtener glucosa por usuario
 exports.listarPorUsuario = async (req, res) => {
   try {
     const usuarioId = Number(req.query.usuarioId);
@@ -139,9 +135,7 @@ exports.listarPorUsuario = async (req, res) => {
 };
 
 
-// =========================================
-// POST /api/niveles-glucosa/monitoreo/iniciar
-// =========================================
+// iniciar api de sensor para que haga lecturas 
 exports.iniciarMonitoreoUsuario = async (req, res) => {
   try {
     const { usuarioId } = req.body;
@@ -154,9 +148,7 @@ exports.iniciarMonitoreoUsuario = async (req, res) => {
 };
 
 
-// =========================================
-// POST /api/niveles-glucosa/monitoreo/detener
-// =========================================
+// detener api de sensor
 exports.detenerMonitoreoUsuario = async (req, res) => {
   try {
     const { usuarioId } = req.body;
@@ -169,9 +161,7 @@ exports.detenerMonitoreoUsuario = async (req, res) => {
 };
 
 
-// =========================================
-// GET /api/niveles-glucosa/lectura/:usuarioId
-// =========================================
+// obtener la última lectura de un usuario
 exports.obtenerUltimaLectura = async (req, res) => {
   try {
     const { usuarioId } = req.params;
@@ -183,7 +173,7 @@ exports.obtenerUltimaLectura = async (req, res) => {
   }
 };
 
-
+// eliminar registro de glucosa
 exports.eliminarGlucosa = async (req, res) => {
   try {
     const { glucosaId } = req.params;
@@ -207,6 +197,7 @@ exports.eliminarGlucosa = async (req, res) => {
   }
 };
 
+// actualizar registro de glucosa
 exports.actualizarGlucosa = async (req, res) => {
   try {
     const { glucosaId } = req.params;

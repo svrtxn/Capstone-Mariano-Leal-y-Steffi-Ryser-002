@@ -27,15 +27,14 @@ async function registroUsuario(req, res) {
       correo, contrasena, nombre, apellido,
       fechaNacimiento, telefono, rol,
       tieneSensor, tipoDiabetes,
-      token_invitacion   // <--- token opcional
+      token_invitacion   // <--- token de invitado
     } = req.body;
 
     let lecturaLibre = null;
     let contrasenaLibreLink = null;
 
-    // =====================================================
-    // 1. Validación LibreLink (si tiene sensor)
-    // =====================================================
+   
+    // validación LibreLink (si tiene sensor)
     if (tieneSensor) {
       try {
         const client = new LibreLinkClient({
@@ -60,16 +59,10 @@ async function registroUsuario(req, res) {
       }
     }
 
-    // =====================================================
-    // 2. Definir ROL FINAL
-    // =====================================================
-    // Si llega token_invitacion → rol "amigo"
-    // Si no → rol enviado o "paciente"
+    // Definir rol , si tiene token_invitacion, forzar a "amigo"
     const rolFinal = token_invitacion ? "amigo" : (rol || "paciente");
 
-    // =====================================================
-    // 3. Crear usuario en MySQL
-    // =====================================================
+    // crear usuario en la base de datos
     const hashedPassword = await bcrypt.hash(contrasena, 10);
 
     const usuario_id = await UsuarioModel.crear({
@@ -78,7 +71,7 @@ async function registroUsuario(req, res) {
       email: correo,
       contraseña: hashedPassword,
       fecha_nacimiento: fechaNacimiento || null,
-      rol: rolFinal,                     // <-- AQUÍ EL NUEVO ROL
+      rol: rolFinal,                     
       telefono: telefono || null,
       ultimo_login: new Date(),
       fecha_creacion: new Date(),
@@ -87,9 +80,7 @@ async function registroUsuario(req, res) {
       ...(tieneSensor && { contrasena_librelink: contrasenaLibreLink })
     });
 
-    // =====================================================
-    // 4. Crear usuario en Firebase Auth
-    // =====================================================
+    // crear usuario tmb en firebase
     await admin.auth().createUser({
       uid: String(usuario_id),
       email: correo,
@@ -97,9 +88,7 @@ async function registroUsuario(req, res) {
       displayName: `${nombre} ${apellido}`
     });
 
-    // =====================================================
-    // 5. Si viene token_invitacion → aceptar y vincular invitación
-    // =====================================================
+    // si tiene token entonces actualizar estado de la invitación a "aceptada" y vincular paciente-contacto
     if (token_invitacion) {
       const invitacion = await contactosModel.buscarPorToken(token_invitacion);
 
@@ -111,16 +100,10 @@ async function registroUsuario(req, res) {
         );
       }
     }
-
-    // =====================================================
-    // 6. Generar JWT
-    // =====================================================
+    // generar JWT
     const SECRET = process.env.JWT_SECRET || 'clave_secreta';
     const token = jwt.sign({ id: usuario_id, email: correo }, SECRET, { expiresIn: '7d' });
 
-    // =====================================================
-    // 7. Respuesta final
-    // =====================================================
     res.status(201).json({
       token,
       usuario: {
@@ -144,10 +127,6 @@ async function registroUsuario(req, res) {
   }
 }
 
-
-
-
-
 // Inicio de sesión
 async function login(req, res) {
   try {
@@ -164,6 +143,7 @@ async function login(req, res) {
     const token = await admin.auth().createCustomToken(String(usuario.usuario_id));
     await UsuarioModel.actualizarUltimoLogin(usuario.usuario_id);
 
+    // Si tiene sensor, intentar obtener lectura LibreLink y guardarla 
     let lecturaLibre = null;
     if (usuario.tiene_sensor === 1) {
       try {
@@ -182,7 +162,7 @@ async function login(req, res) {
 
       } catch (err) {
         console.error('❌ Error LibreLink login:', err.message);
-        lecturaLibre = null; // que no rompa el login
+        lecturaLibre = null;
       }
     }
 
@@ -216,7 +196,7 @@ async function requestPasswordReset(req, res) {
     const usuario = await UsuarioModel.obtenerPorEmail(correo);
     if (!usuario) return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
 
-    // --- Validación: si tiene sensor, no permitir reset desde la app ---
+    // Validación: si tiene sensor, no permitir el cambio
     if (usuario.tiene_sensor === 1) {
       return res.status(400).json({
         ok: false,
