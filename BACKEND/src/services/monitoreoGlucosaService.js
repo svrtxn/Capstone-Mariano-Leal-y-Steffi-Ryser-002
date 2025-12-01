@@ -58,13 +58,24 @@ async function guardarLecturaSensor(lectura, usuarioId) {
         });
 
         // Enviar push
-        const pushService = require("../services/pushService");
-        pushService.enviarNotificacion(
-          usuarioId,
+        await pushService.enviarNotificacion(
+          usuario_id,
           `Alerta ${resultadoAlerta.tipo.toUpperCase()}`,
           `Glucosa: ${valor_glucosa} mg/dL`,
           alertaId
         );
+
+        const contactos = await ContactosModel.obtenerContactosAceptados(usuario_id);
+
+        if (contactos.length > 0) {
+          await pushService.enviarNotificacionMultiple(
+            contactos,
+            `Alerta del usuario ${usuario_id}`,
+            `Se detectó un nivel de glucosa: ${valor_glucosa} mg/dL`,
+            alertaId
+          );
+        }
+
 
       }
     }

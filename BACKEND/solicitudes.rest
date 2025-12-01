@@ -181,7 +181,7 @@ POST http://192.168.100.4:3030/contactos-apoyo/invitar
 Content-Type: application/json
 
 {
-  "usuario_id": 26,
+  "usuario_id": 34,
   "nombre_contacto": "Prueba 1",
   "email_contacto": "correo@ejemplo.com",
   "telefono_contacto": "+56944332211",
@@ -191,11 +191,11 @@ Content-Type: application/json
 ###
 
 ### 2. Redirección GET desde correo (simula clic del usuario)
-GET http://192.168.100.4:3030/contactos-apoyo/aceptar/75836874-8094-4f1f-a37b-ee6262e0f767
+GET http://192.168.100.4:3030/contactos-apoyo/aceptar/3f3748fc-5843-41fd-9a57-5917a93df307
 ###
 
 ### 3. Aceptar invitación (marca como aceptada)
-POST http://192.168.100.4:3030/contactos-apoyo/aceptar/75836874-8094-4f1f-a37b-ee6262e0f767
+POST http://192.168.100.4:3030/contactos-apoyo/aceptar/3f3748fc-5843-41fd-9a57-5917a93df307
 Content-Type: application/json
 
 ###
@@ -213,7 +213,7 @@ Content-Type: application/json
   "fechaNacimiento": "2004-05-25",
   "telefono": "955523789",
   "rol": "amigo",
-  "token_invitacion": "75836874-8094-4f1f-a37b-ee6262e0f767"
+  "token_invitacion": "3f3748fc-5843-41fd-9a57-5917a93df307"
 }
 
 ###

@@ -62,7 +62,7 @@ module.exports = {
               </p>
 
               <div style="text-align:center; margin:30px 0;">
-                <a href="http://172.20.10.2:8081/aceptar-invitacion/${token}"
+                <a href="http://192.168.100.4:8081/aceptar-invitacion/${token}"
                   style="
                     background:#3DB7C4;
                     color:white;

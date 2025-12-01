@@ -177,4 +177,17 @@ module.exports = {
     const [rows] = await db.execute(sql, [contacto_usuario_id]);
     return rows;
   },
+  async obtenerContactosAceptados(usuario_id) {
+    const sql = `
+      SELECT contacto_usuario_id
+      FROM contactosapoyo
+      WHERE usuario_id = ?
+        AND habilitado = 1
+        AND estado_invitacion = 'aceptada'
+        AND contacto_usuario_id IS NOT NULL
+    `;
+    const [rows] = await db.execute(sql, [usuario_id]);
+    return rows.map(r => r.contacto_usuario_id);
+}
+
 };

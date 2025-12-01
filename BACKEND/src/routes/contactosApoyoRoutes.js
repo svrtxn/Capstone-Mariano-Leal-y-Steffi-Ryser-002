@@ -4,11 +4,13 @@ const router = express.Router();
 const controller = require("../controllers/contactosApoyoController");
 
 // (opcional) redirección simple si usas esta ruta desde el correo
+
 router.get("/aceptar/:token", (req, res) => {
-  const { token } = req.params;
-  return res.redirect(`http://172.20.10.2:8081/aceptar-invitacion/${token}`);
+  const { token } = req.params;
+  return res.redirect(`http://192.168.100.4:8081/aceptar-invitacion/${token}`); 
 });
 
+// Rutas existentes
 router.post("/invitar", controller.invitarContacto);
 router.post("/aceptar/:token", controller.aceptarInvitacion);
 router.post("/rechazar/:token", controller.rechazarInvitacion);

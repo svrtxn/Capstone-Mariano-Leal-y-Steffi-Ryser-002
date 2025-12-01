@@ -3,6 +3,7 @@ const expo = new Expo();
 const usuariosPushTokens = require("../models/usuariosPushTokensModel");
 const AlertasModel = require("../models/alertasModel");
 
+
 async function enviarNotificacion(usuario_id, titulo, cuerpo, alerta_id) {
   try {
     const tokens = await usuariosPushTokens.obtenerTokens(usuario_id);
@@ -17,7 +18,7 @@ async function enviarNotificacion(usuario_id, titulo, cuerpo, alerta_id) {
       sound: "default",
       title: titulo,
       body: cuerpo,
-      data: { alerta_id }
+      data: { alerta_id },
     }));
 
     const chunks = expo.chunkPushNotifications(mensajes);
@@ -26,10 +27,9 @@ async function enviarNotificacion(usuario_id, titulo, cuerpo, alerta_id) {
       try {
         const tickets = await expo.sendPushNotificationsAsync(chunk);
         console.log("📨 Tickets:", tickets);
-
         await AlertasModel.marcarEnviada(alerta_id);
       } catch (error) {
-        console.error("❌ Error enviando push:", error);
+        console.error("❌ Error chunk push:", error);
         await AlertasModel.marcarError(alerta_id, error.message);
       }
     }
@@ -38,4 +38,14 @@ async function enviarNotificacion(usuario_id, titulo, cuerpo, alerta_id) {
   }
 }
 
-module.exports = { enviarNotificacion };
+// 🚀 NUEVO: enviar la misma notificación a múltiples usuarios
+async function enviarNotificacionMultiple(listaUsuarios, titulo, cuerpo, alerta_id) {
+  for (const uid of listaUsuarios) {
+    await enviarNotificacion(uid, titulo, cuerpo, alerta_id);
+  }
+}
+
+module.exports = {
+  enviarNotificacion,
+  enviarNotificacionMultiple,
+};
