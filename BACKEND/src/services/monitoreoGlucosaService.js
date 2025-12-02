@@ -6,6 +6,8 @@ const ConfigModel = require('../models/configModel');
 const AlertasModel = require('../models/alertasModel');
 const clasificarAlerta = require('../utils/clasificarAlerta');
 const firebaseDB = require('../config/firebaseAdmin');
+const ContactosModel = require('../models/contactosApoyoModel'); // 👈 para notificar contactos
+const pushService = require('../services/pushService');           // 👈 para enviar push
 
 /**
  * Guarda la lectura del sensor en MySQL, genera alerta y guarda en Firebase.
@@ -32,17 +34,48 @@ async function guardarLecturaSensor(lectura, usuarioId) {
     if (!row) throw new Error("No se pudo recuperar la lectura insertada");
 
     row.fecha_registro = fecha_registro.toISOString();
+    row.id = insertId;
 
     // =========================================
-    // 🚨 GENERACIÓN DE ALERTAS PARA SENSOR
+    // 🚨 GENERACIÓN DE ALERTAS PARA SENSOR (DETALLADAS)
     // =========================================
     let resultadoAlerta = { tipo: "sin_config" };
 
     const configUsuario = await ConfigModel.obtenerPorUsuario(usuarioId);
+    const usuarioInfo = await UsuarioModel.obtenerPorId(usuarioId);
 
     if (configUsuario && configUsuario.notificaciones === 1) {
       resultadoAlerta = clasificarAlerta(valor_glucosa, configUsuario);
       console.log("Tipo alerta:", resultadoAlerta.tipo);
+
+      const mensajesPorTipo = {
+        roja_hipo: {
+          titulo: "🚨 Emergencia: Hipoglucemia severa",
+          detalle: `Nivel crítico: ${valor_glucosa} mg/dL (bajo peligroso)`
+        },
+        roja_hiper: {
+          titulo: "🚨 Emergencia: Hiperglucemia severa",
+          detalle: `Nivel crítico: ${valor_glucosa} mg/dL (alto peligroso)`
+        },
+        amarilla_baja: {
+          titulo: "⚠️ Precaución: Glucosa baja",
+          detalle: `Valor bajo detectado: ${valor_glucosa} mg/dL`
+        },
+        amarilla_alta: {
+          titulo: "⚠️ Precaución: Glucosa alta",
+          detalle: `Valor elevado detectado: ${valor_glucosa} mg/dL`
+        },
+        verde: {
+          titulo: "✅ Glucosa en rango",
+          detalle: `Valor normal: ${valor_glucosa} mg/dL`
+        },
+        sin_config: {
+          titulo: "ℹ️ Lectura registrada",
+          detalle: `Glucosa detectada: ${valor_glucosa} mg/dL`
+        }
+      };
+
+      const msg = mensajesPorTipo[resultadoAlerta.tipo] || mensajesPorTipo.sin_config;
 
       if (resultadoAlerta.tipo !== "verde") {
         const alertaId = await AlertasModel.crear({
@@ -53,30 +86,29 @@ async function guardarLecturaSensor(lectura, usuarioId) {
           estado: "activa",
           canal: "push",
           prioridad: resultadoAlerta.prioridad,
-          titulo: `Alerta ${resultadoAlerta.tipo.toUpperCase()}`,
-          mensaje: `Glucosa detectada: ${valor_glucosa} mg/dL`
+          titulo: msg.titulo,
+          mensaje: msg.detalle
         });
 
-        // Enviar push
+        // 🔔 Notificación al paciente
         await pushService.enviarNotificacion(
-          usuario_id,
-          `Alerta ${resultadoAlerta.tipo.toUpperCase()}`,
-          `Glucosa: ${valor_glucosa} mg/dL`,
+          usuarioId,
+          msg.titulo,
+          msg.detalle,
           alertaId
         );
 
-        const contactos = await ContactosModel.obtenerContactosAceptados(usuario_id);
+        // 📢 Notificación a contactos de apoyo
+        const contactos = await ContactosModel.obtenerContactosAceptados(usuarioId);
 
         if (contactos.length > 0) {
           await pushService.enviarNotificacionMultiple(
             contactos,
-            `Alerta del usuario ${usuario_id}`,
-            `Se detectó un nivel de glucosa: ${valor_glucosa} mg/dL`,
+            `Alerta de ${usuarioInfo?.nombre || "el usuario"}`,
+            msg.detalle,
             alertaId
           );
         }
-
-
       }
     }
 

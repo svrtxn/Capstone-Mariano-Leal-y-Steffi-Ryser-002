@@ -6,8 +6,7 @@ const AlertasModel = require('../models/alertasModel');
 const firebaseDB = require('../config/firebaseAdmin');
 const clasificarAlerta = require('../utils/clasificarAlerta');
 const ContactosModel = require("../models/contactosApoyoModel");
-
-
+const UsuarioModel = require('../models/usuarioModel'); // 👈 para obtener el nombre
 
 const {
   iniciarMonitoreoUsuario: iniciarMonitoreoService,
@@ -15,7 +14,7 @@ const {
   obtenerUltimaLectura: obtenerUltimaLecturaService
 } = require('../services/monitoreoGlucosaService');
 
-// registro de glucosa
+// registro de glucosa (manual o sensor)
 exports.registrarGlucosa = async (req, res) => {
   console.log('REQ.BODY:', req.body);
 
@@ -69,15 +68,43 @@ exports.registrarGlucosa = async (req, res) => {
     // 🟡 NECESARIO PARA BORRAR / ACTUALIZAR EN FIREBASE
     row.id = insertId;
 
-
     // ==============================
-    // 🚨 GENERAR ALERTAS
+    // 🚨 GENERAR ALERTAS (DETALLADAS)
     // ==============================
     let resultadoAlerta = { tipo: "sin_config" };
     const configUsuario = await ConfigModel.obtenerPorUsuario(usuario_id);
 
     if (configUsuario && configUsuario.notificaciones === 1) {
       resultadoAlerta = clasificarAlerta(Number(valor_glucosa), configUsuario);
+
+      const mensajesPorTipo = {
+        roja_hipo: {
+          titulo: "🚨 Emergencia: Hipoglucemia severa",
+          detalle: `Nivel crítico: ${valor_glucosa} mg/dL (bajo peligroso)`
+        },
+        roja_hiper: {
+          titulo: "🚨 Emergencia: Hiperglucemia severa",
+          detalle: `Nivel crítico: ${valor_glucosa} mg/dL (alto peligroso)`
+        },
+        amarilla_baja: {
+          titulo: "⚠️ Precaución: Glucosa baja",
+          detalle: `Valor bajo detectado: ${valor_glucosa} mg/dL`
+        },
+        amarilla_alta: {
+          titulo: "⚠️ Precaución: Glucosa alta",
+          detalle: `Valor elevado detectado: ${valor_glucosa} mg/dL`
+        },
+        verde: {
+          titulo: "✅ Glucosa en rango",
+          detalle: `Valor normal: ${valor_glucosa} mg/dL`
+        },
+        sin_config: {
+          titulo: "ℹ️ Lectura registrada",
+          detalle: `Glucosa detectada: ${valor_glucosa} mg/dL`
+        }
+      };
+
+      const msg = mensajesPorTipo[resultadoAlerta.tipo] || mensajesPorTipo.sin_config;
 
       if (resultadoAlerta.tipo !== "verde") {
         const alertaId = await AlertasModel.crear({
@@ -88,38 +115,40 @@ exports.registrarGlucosa = async (req, res) => {
           estado: "activa",
           canal: "push",
           prioridad: resultadoAlerta.prioridad,
-          titulo: `Alerta ${resultadoAlerta.tipo.toUpperCase()}`,
-          mensaje: `Tu nivel de glucosa es ${valor_glucosa} mg/dL`
+          titulo: msg.titulo,
+          mensaje: msg.detalle
         });
 
         const pushService = require("../services/pushService");
+        const usuarioInfo = await UsuarioModel.obtenerPorId(usuario_id);
+
+        // 🔔 Notificación al usuario
         await pushService.enviarNotificacion(
           usuario_id,
-          `Alerta ${resultadoAlerta.tipo.toUpperCase()}`,
-          `Glucosa: ${valor_glucosa} mg/dL`,
+          msg.titulo,
+          msg.detalle,
           alertaId
         );
 
+        // 📢 Notificación a contactos de apoyo
         const contactos = await ContactosModel.obtenerContactosAceptados(usuario_id);
 
         if (contactos.length > 0) {
           await pushService.enviarNotificacionMultiple(
             contactos,
-            `Alerta del usuario ${usuario_id}`,
-            `Se detectó un nivel de glucosa: ${valor_glucosa} mg/dL`,
+            `Alerta de ${usuarioInfo?.nombre || "el usuario"}`,
+            msg.detalle,
             alertaId
           );
         }
       }
     }
 
-
     // ==============================
     // 🔥 GUARDAR EN FIREBASE
     // ==============================
     const ref = firebaseDB.db.ref(`niveles_glucosa/${row.usuario_id}`).push();
     await ref.set(row);
-
 
     return res.status(201).json({
       ...row,
@@ -233,10 +262,6 @@ exports.eliminarGlucosa = async (req, res) => {
 };
 
 
-
-// ==============================
-// ✏ ACTUALIZAR GLUCOSA (MySQL + Firebase)
-// ==============================
 // ==============================
 // ✏ ACTUALIZAR GLUCOSA (MySQL + Firebase)
 // ==============================
@@ -313,6 +338,7 @@ exports.actualizarGlucosa = async (req, res) => {
     res.status(500).json({ mensaje: "Error actualizando glucosa", error: error.message });
   }
 };
+
 
 // ==============================
 // 🗑 ELIMINAR TODAS LAS GLUCOSAS

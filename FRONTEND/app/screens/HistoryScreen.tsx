@@ -26,6 +26,8 @@ import { COLORS } from "../../constants/colors";
 import { glucoseApi } from "../services/api";
 import * as Print from "expo-print";
 import { shareAsync } from "expo-sharing";
+import { BASE_URL } from "../../constants/config";
+import { getCurrentUserId } from "../services/session";
 
 type Row = {
   glucosa_id?: number;
@@ -40,6 +42,14 @@ type Row = {
 };
 
 type TimeWindow = "12h" | "24h" | "7d" | "todo";
+
+// 👇 umbrales iguales a los del Home
+type Thresholds = {
+  hipo_min: number;
+  normal_min: number;
+  normal_max: number;
+  hiper_max: number;
+};
 
 function parseTsSafe(v: any): number {
   if (!v) return NaN;
@@ -60,10 +70,20 @@ function formatDateTime(s: string) {
   })}`;
 }
 
-function levelColor(v: number) {
-  if (v < 70 || v > 180) return "#ef4444";
-  if ((v >= 70 && v < 80) || (v > 140 && v <= 180)) return "#f59e0b";
-  return "#22c55e";
+// 👇 ahora recibe thresholds (si no hay, usa defaults)
+function levelColor(v: number, thresholds?: Thresholds | null) {
+  const hipo = thresholds?.hipo_min ?? 70;
+  const nMin = thresholds?.normal_min ?? 70;
+  const nMax = thresholds?.normal_max ?? 140;
+  const hiper = thresholds?.hiper_max ?? 180;
+
+  if (v < hipo || v > hiper) return "#ef4444"; // rojo
+  if (
+    (v >= hipo && v < nMin) ||
+    (v > nMax && v <= hiper)
+  )
+    return "#f59e0b"; // amarillo
+  return "#22c55e"; // verde
 }
 
 export default function HistoryScreen() {
@@ -103,6 +123,9 @@ export default function HistoryScreen() {
   const [editNotas, setEditNotas] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // 👇 umbrales cargados del backend (igual que en Home)
+  const [thresholds, setThresholds] = useState<Thresholds | null>(null);
+
   const load = useCallback(async () => {
     try {
       setLoading(true);
@@ -131,10 +154,36 @@ export default function HistoryScreen() {
     }
   }, [pacienteIdParam]);
 
+  // 👇 cargar umbrales desde /config (igual que en Home)
+  const loadThresholds = useCallback(async () => {
+    try {
+      const uid = pacienteIdParam || (await getCurrentUserId());
+      if (!uid) return;
+
+      const res = await fetch(`${BASE_URL}/config/${uid}`);
+      if (!res.ok) return;
+
+      const raw = await res.json().catch(() => null);
+      if (!raw) return;
+
+      const d = Array.isArray(raw) ? raw[0] : raw;
+
+      setThresholds({
+        hipo_min: Number(d.hipo_min ?? 70),
+        normal_min: Number(d.normal_min ?? 70),
+        normal_max: Number(d.normal_max ?? 140),
+        hiper_max: Number(d.hiper_max ?? 180),
+      });
+    } catch (err) {
+      console.warn("Error cargando umbrales:", err);
+    }
+  }, [pacienteIdParam]);
+
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load])
+      loadThresholds();
+    }, [load, loadThresholds])
   );
 
   const filtered = useMemo(() => {
@@ -319,7 +368,6 @@ export default function HistoryScreen() {
   const handleDeleteHistory = () => {
     if (isSupportMode || !filtered.length || deletingAll) return;
 
-    // 🌐 En web usamos window.confirm porque Alert.alert a veces no se ve
     if (Platform.OS === "web" && typeof window !== "undefined") {
       const ok = window.confirm(
         "¿Seguro que deseas borrar todo el historial de glucosa? Esta acción no se puede deshacer."
@@ -343,7 +391,6 @@ export default function HistoryScreen() {
       return;
     }
 
-    // 📱 En native usamos Alert.alert
     Alert.alert(
       "Borrar historial",
       "¿Seguro que deseas borrar todo el historial de glucosa? Esta acción no se puede deshacer.",
@@ -377,7 +424,6 @@ export default function HistoryScreen() {
   const handleDeleteOne = (row: Row) => {
     if (isSupportMode || !row.glucosa_id || deletingOneId) return;
 
-    // 🌐 En web usamos window.confirm
     if (Platform.OS === "web" && typeof window !== "undefined") {
       const ok = window.confirm(
         "¿Seguro que deseas eliminar esta medición de glucosa?"
@@ -401,7 +447,6 @@ export default function HistoryScreen() {
       return;
     }
 
-    // 📱 En native usamos Alert.alert
     Alert.alert(
       "Eliminar registro",
       "¿Seguro que deseas eliminar esta medición de glucosa?",
@@ -632,6 +677,8 @@ export default function HistoryScreen() {
         contentContainerStyle={{ paddingBottom: 24 }}
         renderItem={({ item }) => {
           const canEdit = !isSupportMode && typeof item.glucosa_id === "number";
+          const color = levelColor(item.valor_glucosa, thresholds);
+
           return (
             <View style={s.tr}>
               <Text style={[s.td, { flex: 1.6 }]} numberOfLines={1}>
@@ -642,12 +689,12 @@ export default function HistoryScreen() {
                 <Ionicons
                   name="water-outline"
                   size={14}
-                  color={levelColor(item.valor_glucosa)}
+                  color={color}
                 />
                 <Text
                   style={[
                     s.tdStrong,
-                    { color: levelColor(item.valor_glucosa) },
+                    { color },
                   ]}
                 >
                   {item.valor_glucosa}
