@@ -1,4 +1,3 @@
-// src/models/glucosaModel.js
 const db = require('../config/mysql');
 
 const TABLA = 'nivelesglucosa';

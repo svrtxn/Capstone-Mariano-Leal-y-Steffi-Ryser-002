@@ -1,7 +1,6 @@
 function clasificarAlerta(valor, config) {
   const margen = 5;
 
-  // Protección: si la config no tiene datos, regresar sin_config
   if (!config || config.hipo_min == null || config.normal_min == null || config.normal_max == null || config.hiper_max == null) {
     console.log("⚠️ Configuración incompleta o inexistente");
     return { tipo: "sin_config" };

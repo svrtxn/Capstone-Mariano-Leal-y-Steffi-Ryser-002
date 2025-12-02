@@ -83,6 +83,25 @@ export default function RegisterScreen({
   const fechaOk =
     fechaNacimiento.trim() === "" ||
     /^\d{4}-\d{2}-\d{2}$/.test(fechaNacimiento.trim());
+  
+      // Manejo de fecha con formato automático YYYY-MM-DD
+  const handleFechaChange = (text: string) => {
+    // Dejamos solo números
+    let digits = text.replace(/\D/g, "").slice(0, 8); // máx 8 dígitos (YYYYMMDD)
+
+    let formatted = digits;
+
+    if (digits.length > 4 && digits.length <= 6) {
+      // YYYY-MM
+      formatted = `${digits.slice(0, 4)}-${digits.slice(4)}`;
+    } else if (digits.length > 6) {
+      // YYYY-MM-DD
+      formatted = `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
+    }
+
+    setFechaNacimiento(formatted);
+  };
+
 
   // Validación general (ahora incluye acceptedTerms)
   const isValid =
@@ -206,7 +225,7 @@ export default function RegisterScreen({
           />
 
           {/* Apellido */}
-          <Text style={s.label}>Apellido (opcional)</Text>
+          <Text style={s.label}>Apellido</Text>
           <TextInput
             value={apellido}
             onChangeText={setApellido}
@@ -262,16 +281,17 @@ export default function RegisterScreen({
           )}
 
           {/* Fecha nacimiento */}
-          <Text style={s.label}>Fecha de nacimiento (YYYY-MM-DD)</Text>
+                    <Text style={s.label}>Fecha de nacimiento (YYYY-MM-DD)</Text>
           <TextInput
             value={fechaNacimiento}
-            onChangeText={setFechaNacimiento}
+            onChangeText={handleFechaChange}
             placeholder="2000-01-31"
-            keyboardType="numeric"
-            maxLength={10}
+            keyboardType="number-pad"   // solo números en el teclado
+            maxLength={10}              // YYYY-MM-DD
             placeholderTextColor={COLORS.sub}
             style={s.input}
           />
+
 
           {/* Teléfono */}
           <Text style={s.label}>Teléfono (opcional)</Text>

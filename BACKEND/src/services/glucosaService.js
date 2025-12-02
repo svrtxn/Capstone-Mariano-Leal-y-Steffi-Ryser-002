@@ -7,10 +7,6 @@ const clasificarAlerta = require('../utils/clasificarAlerta');
 
 const TABLA = 'nivelesglucosa';
 
-/**
- * Guarda una lectura de glucosa obtenida desde LibreLinkUp
- * + Genera alertas según configuración HU05
- */
 async function guardarLecturaSensor(lectura, usuarioId) {
   try {
     const valor =
@@ -33,9 +29,6 @@ async function guardarLecturaSensor(lectura, usuarioId) {
 
     const fechaRegistro = new Date(fecha);
 
-    // -------------------------------------------------
-    // Verificar que no exista duplicado
-    // -------------------------------------------------
     const [existente] = await db.query(
       `SELECT glucosa_id FROM ${TABLA} WHERE usuario_id = ? AND fecha_registro = ? LIMIT 1`,
       [usuarioId, fechaRegistro]
@@ -46,9 +39,6 @@ async function guardarLecturaSensor(lectura, usuarioId) {
       return null;
     }
 
-    // -------------------------------------------------
-    // Insertar lectura
-    // -------------------------------------------------
     const insertSQL = `
       INSERT INTO ${TABLA}
       (usuario_id, valor_glucosa, unidad, metodo_registro, origen_sensor, fecha_registro)
@@ -75,9 +65,6 @@ async function guardarLecturaSensor(lectura, usuarioId) {
     const row = rows[0];
     row.fecha_registro = new Date(row.fecha_registro).toISOString();
 
-    // -------------------------------------------------
-    // 🔥 HU05 — GENERAR ALERTAS PARA SENSORES
-    // -------------------------------------------------
     let resultadoAlerta = { tipo: "sin_config" };
 
     const config = await ConfigModel.obtenerPorUsuario(usuarioId);
@@ -99,9 +86,6 @@ async function guardarLecturaSensor(lectura, usuarioId) {
       }
     }
 
-    // -------------------------------------------------
-    // Guardar en Firebase
-    // -------------------------------------------------
     const ref = firebaseDB.db.ref(`niveles_glucosa/${usuarioId}`).push();
     await ref.set(row);
 

@@ -1,5 +1,4 @@
-// src/models/contactosApoyoModel.js
-const db = require("../config/mysql"); // mysql2/promise
+const db = require("../config/mysql"); 
 
 module.exports = {
   async crearInvitacion(data) {
@@ -160,7 +159,6 @@ module.exports = {
     return rows;
   },
 
-  // 🔥 NUEVO: ver pacientes de un contacto de apoyo
   async verPacientes(contacto_usuario_id) {
     const sql = `
       SELECT 

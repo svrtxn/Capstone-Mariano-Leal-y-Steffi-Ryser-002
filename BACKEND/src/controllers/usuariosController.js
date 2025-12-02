@@ -1,4 +1,3 @@
-// src/controllers/usuariosController.js
 const crypto = require('crypto');
 const UsuarioModel = require('../models/usuarioModel');
 const { admin } = require('../config/firebaseAdmin');
@@ -8,7 +7,6 @@ const jwt = require('jsonwebtoken');
 const { LibreLinkClient } = require('libre-link-unofficial-api');
 const { guardarLecturaSensor } = require('../services/glucosaService');
 const contactosModel = require("../models/contactosApoyoModel");
-
 
 // Obtener todos los usuarios
 async function todos(req, res) {
@@ -32,7 +30,6 @@ async function registroUsuario(req, res) {
 
     let lecturaLibre = null;
     let contrasenaLibreLink = null;
-
    
     // validación LibreLink (si tiene sensor)
     if (tieneSensor) {
@@ -59,10 +56,8 @@ async function registroUsuario(req, res) {
       }
     }
 
-    // Definir rol , si tiene token_invitacion, forzar a "amigo"
     const rolFinal = token_invitacion ? "amigo" : (rol || "paciente");
 
-    // crear usuario en la base de datos
     const hashedPassword = await bcrypt.hash(contrasena, 10);
 
     const usuario_id = await UsuarioModel.crear({

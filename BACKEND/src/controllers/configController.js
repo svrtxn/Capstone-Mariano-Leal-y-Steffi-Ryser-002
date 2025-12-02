@@ -1,4 +1,3 @@
-// src/controllers/configController.js
 const ConfigModel = require("../models/configModel");
 
 

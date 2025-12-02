@@ -1,4 +1,3 @@
-// src/controllers/contactosApoyoController.js
 const { v4: uuidv4 } = require("uuid");
 const contactosModel = require("../models/contactosApoyoModel");
 const usuariosModel = require("../models/usuarioModel");
@@ -103,7 +102,7 @@ module.exports = {
     }
   },
 
-  // Aceptar invitación (token por params) → sólo valida y devuelve datos
+  // Aceptar invitación 
   async aceptarInvitacion(req, res) {
     try {
       const { token } = req.params;
@@ -178,7 +177,6 @@ module.exports = {
     }
   },
 
-  // 🔥 NUEVO: ver pacientes de un contacto de apoyo
   async misPacientes(req, res) {
     try {
       const { contacto_usuario_id } = req.body;
@@ -198,11 +196,11 @@ module.exports = {
     }
   },
 
-  // D. Verificar acceso
+
   async verificarAcceso(req, res) {
     try {
-      const { usuario_id } = req.params; // paciente
-      const { contacto_usuario_id } = req.query; // contacto
+      const { usuario_id } = req.params; 
+      const { contacto_usuario_id } = req.query; 
 
       const acceso = await contactosModel.verificarAcceso(
         usuario_id,
@@ -240,7 +238,7 @@ module.exports = {
     res.json({ msg: "Prioridad cambiada" });
   },
 
-  //  Ver mis contactos de apoyo (como paciente)
+  //  Ver contactos de apoyo
   async verContactos(req, res) {
     try {
       const { usuario_id } = req.params;

@@ -5,7 +5,6 @@ const { enviarNotificacion } = require("./pushService");
 
 async function procesarAlerta(usuario_id, valorGlucosa, config) {
   try {
-    // 1️⃣ Traer usuario (para usar nombre + apellido)
     const usuario = await UsuarioModel.obtenerPorId(usuario_id);
 
     if (!usuario) {
@@ -15,10 +14,9 @@ async function procesarAlerta(usuario_id, valorGlucosa, config) {
 
     const nombreCompleto = `${usuario.nombre} ${usuario.apellido}`;
 
-    // 2️⃣ Clasificar el valor
+    // categoria de alerta
     const resultado = clasificarAlerta(valorGlucosa, config);
 
-    // 3️⃣ Guardar alerta en la BD
     const alerta_id = await AlertasModel.crear({
       usuario_id,
       tipo_alerta: resultado.tipo,
@@ -27,7 +25,7 @@ async function procesarAlerta(usuario_id, valorGlucosa, config) {
       prioridad: resultado.prioridad
     });
 
-    // 4️⃣ Armar título y cuerpo personalizados
+    // personalizar alerta
     const titulo = `Alerta para ${nombreCompleto}`;
 
     let cuerpo;
@@ -45,7 +43,7 @@ async function procesarAlerta(usuario_id, valorGlucosa, config) {
         cuerpo = `Glucosa detectada: ${valorGlucosa} mg/dL.`;
     }
 
-    // 5️⃣ Enviar push usando tu pushService
+    // enviar usando pushService
     await enviarNotificacion(usuario_id, titulo, cuerpo, alerta_id);
 
     return true;

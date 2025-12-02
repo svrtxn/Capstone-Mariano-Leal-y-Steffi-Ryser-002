@@ -1,11 +1,9 @@
-// models/usuariosPushTokensModel.js
 const db = require("../config/mysql");
 
 const TABLA = "usuarios_push_tokens";
 
 module.exports = {
   async guardarToken(usuario_id, expo_token) {
-    // 👇 Ajusta este INSERT según las columnas reales de tu tabla
     const sql = `
       INSERT INTO ${TABLA} (usuario_id, expo_token, activo)
       VALUES (?, ?, 1)

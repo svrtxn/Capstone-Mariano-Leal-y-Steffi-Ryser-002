@@ -38,7 +38,6 @@ async function enviarNotificacion(usuario_id, titulo, cuerpo, alerta_id) {
   }
 }
 
-// 🚀 NUEVO: enviar la misma notificación a múltiples usuarios
 async function enviarNotificacionMultiple(listaUsuarios, titulo, cuerpo, alerta_id) {
   for (const uid of listaUsuarios) {
     await enviarNotificacion(uid, titulo, cuerpo, alerta_id);
